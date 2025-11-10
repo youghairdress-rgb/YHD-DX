@@ -10,7 +10,9 @@ import {
     initializeAppFailure,
     hideLoadingScreen,
     setTextContent,
-    base64ToBlob
+    base64ToBlob,
+    // ★★★ アップグレード ステップ1: 画像圧縮ヘルパーをインポート ★★★
+    compressImage
 } from './helpers.js';
 
 import {
@@ -33,7 +35,7 @@ import {
     requestRefinement
 } from './api.js';
 
-// --- ★ 修正: ユーザー指定の新しいFirebaseConfig ---
+// --- yhd-ai の Firebase 設定 (書き換え済み) ---
 const firebaseConfig = {
     apiKey: "AIzaSyD7f_GTwM7ee6AgMjwCRetyMNlVKDpb3_4",
     authDomain: "yhd-ai.firebaseapp.com",
@@ -44,11 +46,13 @@ const firebaseConfig = {
     measurementId: "G-D26PT4FYPR"
 };
 
+
 // --- Global App State ---
 const AppState = {
     // ★ 修正: firestore を AppState に追加
     firebase: { app: null, auth: null, storage: null, firestore: null },
-    liffId: '2008345232-pVNR18m1', // ★ 修正: AI診断LIFFアプリのID
+    // ★ 修正: yhd-ai の LIFF ID (書き換え済み)
+    liffId: '2008345232-pVNR18m1', 
     userProfile: {
         displayName: "ゲスト",
         userId: null,       // LIFF User ID
@@ -60,7 +64,12 @@ const AppState = {
     },
     gender: 'female',
     uploadedFiles: {}, // File オブジェクト
+    
+    // ★★★ アップグレード ステップ2: fileUrls を使う方式に戻す ★★★
     uploadedFileUrls: {}, // Storage の URL
+    // uploadedFilePaths: {}, // (gs:// URI方式はAIが非対応のため廃止)
+    // uploadedFileMimeTypes: {}, // (gs:// URI方式はAIが非対応のため廃止)
+
     selectedProposal: { hairstyle: null, haircolor: null },
     aiDiagnosisResult: null,
     aiProposal: null,
@@ -144,17 +153,60 @@ function setupEventListeners() {
 
         if (button && input) {
             button.addEventListener('click', () => !button.disabled && input.click());
-            input.addEventListener('change', (event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                    AppState.uploadedFiles[itemId] = file;
-                    console.log(`[FileSelected] ${itemId}: ${file.name}`);
+            
+            // ★★★ アップグレード ステップ1: 画像圧縮ロジックをここに追加 ★★★
+            input.addEventListener('change', async (event) => { // async に変更
+                try {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    // ボタンを即座に「処理中...」に変更
+                    button.textContent = '処理中...';
+                    button.disabled = true;
+
+                    let fileToUpload = file;
+
+                    // (1) 画像かどうかを判定
+                    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                        console.log(`[FileSelected] ${itemId} (Image): ${file.name}. Compressing...`);
+                        try {
+                            // (2) 画像圧縮を実行 (HEIC/HEIFはスキップされる)
+                            fileToUpload = await compressImage(file); // 圧縮待機
+                            console.log(`[FileSelected] ${itemId} compression complete.`);
+                        } catch (compressError) {
+                            console.warn(`[FileSelected] ${itemId} compression failed. Using original file.`, compressError);
+                            // 圧縮に失敗しても（例: 壊れた画像）、元のファイルで続行
+                            fileToUpload = file;
+                        }
+                    } else {
+                        // (3) 動画またはGIFはそのまま
+                        console.log(`[FileSelected] ${itemId} (Video/Other): ${file.name}. Skipping compression.`);
+                    }
+
+                    // (4) 圧縮後（またはスキップ後）のファイルをAppStateに保存
+                    AppState.uploadedFiles[itemId] = fileToUpload;
+                    console.log(`[FileSaved] ${itemId}: ${fileToUpload.name}`);
+                    
+                    // (5) UIを「撮影済み」に変更
                     button.textContent = '✔️ 撮影済み';
                     button.classList.remove('btn-outline');
                     button.classList.add('btn-success');
-                    button.disabled = true;
+                    button.disabled = true; // (disabled = true は維持)
                     if (iconDiv) iconDiv.classList.add('completed');
+                    
+                    // (6) 全ファイルが揃ったかチェック
                     checkAllFilesUploaded(areAllFilesUploaded());
+
+                } catch (error) {
+                    console.error(`[FileSelected] Error processing file for ${itemId}:`, error);
+                    alert(`ファイルの処理中にエラーが発生しました: ${error.message}`);
+                    // エラーが起きたらUIを元に戻す
+                    button.textContent = '撮影';
+                    button.disabled = false;
+                    if (iconDiv) iconDiv.classList.remove('completed');
+                } finally {
+                    // inputの値をクリアして、同じファイルが再選択された場合もchangeイベントが発火するようにする
+                    event.target.value = null;
                 }
             });
         }
@@ -196,8 +248,11 @@ function setupEventListeners() {
         changePhase('phase5');
     });
 
-    // Phase 6: Refine Button
+    // Phase 6: Refine Button (手動微調整)
     document.getElementById('refine-image-btn')?.addEventListener('click', handleImageRefinementRequest);
+
+    // ★★★ アップグレード 提案②: カラー切替ボタンのリスナーを追加 ★★★
+    document.getElementById('switch-color-btn')?.addEventListener('click', handleColorSwitchRequest);
 
     // Phase 6: Share Button
     document.getElementById('share-phase6-btn')?.addEventListener('click', () => {
@@ -230,6 +285,12 @@ async function handleDiagnosisRequest() {
         changePhase('phase3.5');
         updateStatusText('ファイルをアップロード中... (0/5)');
 
+        // ★★★ アップグレード ステップ2: fileUrls を使う方式に戻す ★★★
+        // リセット
+        AppState.uploadedFileUrls = {}; 
+        // AppState.uploadedFilePaths = {}; 
+        // AppState.uploadedFileMimeTypes = {};
+
         const uploadPromises = [];
         const fileKeys = Object.keys(AppState.uploadedFiles);
         let uploadedCount = 0;
@@ -246,18 +307,28 @@ async function handleDiagnosisRequest() {
             ).then(result => {
                 uploadedCount++;
                 updateStatusText(`ファイルをアップロード中... (${uploadedCount}/${fileKeys.length})`);
-                AppState.uploadedFileUrls[key] = result.url;
+                
+                // ★★★ アップグレード ステップ2: 返ってきた結果を保存 ★★★
+                AppState.uploadedFileUrls[key] = result.url; // HTTPS URL
+                // AppState.uploadedFilePaths[key] = result.path; // GCS Path (gs://...)
+                // AppState.uploadedFileMimeTypes[key] = file.type || 'application/octet-stream'; // MIME Type
+                
                 return result;
             });
             uploadPromises.push(promise);
         });
 
         await Promise.all(uploadPromises);
-        console.log("[handleDiagnosisRequest] All files uploaded and saved to Firestore:", AppState.uploadedFileUrls);
+        console.log("[handleDiagnosisRequest] All 5 files uploaded and saved to Firestore.");
         updateStatusText('AIに診断をリクエスト中...');
 
+        // ★★★ アップグレード ステップ2: AIに渡すデータを fileUrls に戻す ★★★
         const requestData = {
-            fileUrls: AppState.uploadedFileUrls,
+            // fileInfo: { // gs:// URI 方式は廃止
+            //     paths: AppState.uploadedFilePaths,
+            //     mimeTypes: AppState.uploadedFileMimeTypes,
+            // },
+            fileUrls: AppState.uploadedFileUrls, // HTTPS URL を渡す方式に戻す
             userProfile: {
                 userId: AppState.userProfile.userId,
                 displayName: AppState.userProfile.displayName,
@@ -265,6 +336,13 @@ async function handleDiagnosisRequest() {
             },
             gender: AppState.gender
         };
+        
+        // ★★★ アップグレード ステップ2: fileUrls が5つ揃っているか最終チェック ★★★
+        const requiredKeys = ['item-front-photo', 'item-side-photo', 'item-back-photo', 'item-front-video', 'item-back-video'];
+        const missingKeys = requiredKeys.filter(key => !requestData.fileUrls[key]);
+        if (missingKeys.length > 0) {
+            throw new Error(`AIへのリクエストに必要なファイルURLが不足しています: ${missingKeys.join(', ')}`);
+        }
 
         const responseData = await requestAiDiagnosis(requestData);
         console.log("[handleDiagnosisRequest] Diagnosis response received.");
@@ -283,6 +361,7 @@ async function handleDiagnosisRequest() {
         document.querySelectorAll('.upload-item').forEach(item => {
             const button = item.querySelector('button');
             const iconDiv = item.querySelector('.upload-icon');
+            // ★ 修正: uploadedFileUrls を見るように変更
             if (button && !AppState.uploadedFileUrls[item.id]) {
                 button.textContent = '撮影';
                 button.classList.add('btn-outline');
@@ -319,11 +398,20 @@ async function handleImageGenerationRequest() {
         saveBtn.classList.remove('btn-success');
         saveBtn.classList.add('btn-primary');
     }
+    
+    // ★★★ アップグレード 提案②: カラー切替ボタンを非表示/リセット ★★★
+    const switchColorBtn = document.getElementById('switch-color-btn');
+    if (switchColorBtn) {
+        switchColorBtn.style.display = 'none';
+        switchColorBtn.disabled = false;
+        switchColorBtn.dataset.otherColorKey = '';
+    }
 
     if (!AppState.selectedProposal.hairstyle || !AppState.selectedProposal.haircolor) {
         alert("ヘアスタイルとヘアカラーを選択してください。");
         return;
     }
+    // ★ 修正: fileUrls を見るように変更
     const originalImageUrl = AppState.uploadedFileUrls['item-front-photo'];
     if (!originalImageUrl) {
         alert("画像生成に必要な正面写真のURLが見つかりません。");
@@ -367,6 +455,9 @@ async function handleImageGenerationRequest() {
         if (generatedImageElement) {
             generatedImageElement.src = dataUrl;
         }
+        
+        // ★★★ アップグレード 提案②: カラー切替ボタンを設定 ★★★
+        updateColorSwitchButton(AppState.selectedProposal.haircolor);
 
     } catch (error) {
         console.error("[handleImageGenerationRequest] Error:", error);
@@ -381,15 +472,104 @@ async function handleImageGenerationRequest() {
 }
 
 /**
- * [Handler] 画像微調整リクエスト
+ * [Handler] 画像微調整リクエスト (手動)
  */
 async function handleImageRefinementRequest() {
-    console.log("[handleImageRefinementRequest] Starting...");
+    console.log("[handleImageRefinementRequest] Starting (Manual)...");
     const refineBtn = document.getElementById('refine-image-btn');
     const input = document.getElementById('refinement-prompt-input');
+    
+    const refinementText = input.value;
+    if (!refinementText || refinementText.trim() === '') {
+        alert("微調整したい内容を入力してください。");
+        return;
+    }
+
+    // ★★★ アップグレード 提案②: カラー切替ボタンを無効化 ★★★
+    const switchColorBtn = document.getElementById('switch-color-btn');
+    if (switchColorBtn) {
+        switchColorBtn.disabled = true;
+    }
+    if (refineBtn) {
+        refineBtn.disabled = true;
+        refineBtn.textContent = '修正中...';
+    }
+
+    // 汎用リクエスト関数を呼び出す
+    const success = await requestRefinementInternal(refinementText);
+
+    if (success) {
+        if (input) input.value = ''; // 成功したらテキストをクリア
+         // ★★★ アップグレード 提案②: 手動微調整後は、提案カラーが不明になるため切替ボタンを隠す ★★★
+         if (switchColorBtn) {
+             switchColorBtn.style.display = 'none';
+         }
+    }
+
+    // ボタンの状態を戻す
+    if (refineBtn) {
+        refineBtn.disabled = false;
+        refineBtn.textContent = '変更を反映する';
+    }
+    // ★★★ アップグレード 提案②: switchColorBtn はここでは戻さない (手動編集されたため) ★★★
+}
+
+/**
+ * ★★★ 新規追加 [Handler] カラー切替リクエスト ★★★
+ */
+async function handleColorSwitchRequest(event) {
+    console.log("[handleColorSwitchRequest] Starting (Color Switch)...");
+    const switchColorBtn = event.currentTarget;
+    const refineBtn = document.getElementById('refine-image-btn');
+    
+    const otherColorKey = switchColorBtn.dataset.otherColorKey;
+    if (!otherColorKey || !AppState.aiProposal.haircolors[otherColorKey]) {
+        alert("切替先のカラー情報が見つかりません。");
+        return;
+    }
+
+    const otherColor = AppState.aiProposal.haircolors[otherColorKey];
+    const refinementText = `ヘアカラーを「${otherColor.name}」に変更してください。`;
+    
+    // ボタンを無効化
+    if (switchColorBtn) {
+        switchColorBtn.disabled = true;
+        switchColorBtn.textContent = `「${otherColor.name}」に変更中...`;
+    }
+    if (refineBtn) {
+        refineBtn.disabled = true; // 手動微調整も無効化
+    }
+
+    // 汎用リクエスト関数を呼び出す
+    const success = await requestRefinementInternal(refinementText);
+    
+    if (success) {
+        // ★ 成功した場合、グローバルステートとボタンの表示を更新
+        AppState.selectedProposal.haircolor = otherColorKey;
+        updateColorSwitchButton(otherColorKey); // ボタンを「元に戻す」ように設定
+    }
+
+    // ボタンの状態を戻す
+    if (switchColorBtn) {
+        switchColorBtn.disabled = false;
+        // (updateColorSwitchButton がテキストを最終設定するので、ここでは不要)
+    }
+     if (refineBtn) {
+        refineBtn.disabled = false; // 手動微調整を再度有効化
+    }
+}
+
+
+/**
+ * ★★★ 新規追加 [Internal] 画像微調整の共通ロジック ★★★
+ * @param {string} refinementText - AIに送る指示テキスト
+ * @returns {Promise<boolean>} - 成功したかどうか
+ */
+async function requestRefinementInternal(refinementText) {
     const generatedImageElement = document.getElementById('generated-image');
     const refinementSpinner = document.getElementById('refinement-spinner');
     
+    // 保存ボタンの状態をリセット
     const saveBtn = document.getElementById('save-generated-image-to-db-btn');
     if (saveBtn) {
         saveBtn.disabled = false;
@@ -398,25 +578,16 @@ async function handleImageRefinementRequest() {
         saveBtn.classList.add('btn-primary');
     }
 
-    const refinementText = input.value;
-    if (!refinementText || refinementText.trim() === '') {
-        alert("微調整したい内容を入力してください。");
-        return;
-    }
     if (!AppState.generatedImageUrl || !AppState.generatedImageUrl.startsWith('data:image')) {
         alert("微調整の元になる画像データが見つかりません。");
-        return;
+        return false;
     }
     if (!AppState.userProfile.firebaseUid) {
         alert("ユーザー情報が取得できていません。");
-        return;
+        return false;
     }
 
     try {
-        if (refineBtn) {
-            refineBtn.disabled = true;
-            refineBtn.textContent = '修正中...';
-        }
         if (generatedImageElement) generatedImageElement.style.opacity = '0.5';
         if (refinementSpinner) refinementSpinner.style.display = 'block';
 
@@ -438,20 +609,18 @@ async function handleImageRefinementRequest() {
         AppState.generatedImageUrl = dataUrl;
         
         if (generatedImageElement) generatedImageElement.src = dataUrl;
-        if (input) input.value = '';
+        return true; // 成功
 
     } catch (error) {
-        console.error("[handleImageRefinementRequest] Error:", error);
+        console.error("[requestRefinementInternal] Error:", error);
         alert(`画像の修正に失敗しました。\n詳細: ${error.message}`);
+        return false; // 失敗
     } finally {
-        if (refineBtn) {
-            refineBtn.disabled = false;
-            refineBtn.textContent = '変更を反映する';
-        }
         if (generatedImageElement) generatedImageElement.style.opacity = '1';
         if (refinementSpinner) refinementSpinner.style.display = 'none';
     }
 }
+
 
 /**
  * [Handler] 生成画像を yhd-db の Storage と Firestore に保存
@@ -540,6 +709,13 @@ async function captureAndShareImage(phaseId, fileName) {
 
     const buttonsToHide = targetElement.querySelectorAll('.no-print');
     buttonsToHide.forEach(btn => btn.style.visibility = 'hidden');
+    
+    // ★★★ アップグレード 提案②: カラー切替ボタンも隠す ★★★
+    const switchColorBtn = document.getElementById('switch-color-btn');
+    if (phaseId === 'phase6' && switchColorBtn) {
+        switchColorBtn.style.display = 'none';
+    }
+
     const loadingText = document.createElement('p');
     loadingText.textContent = '画像を生成中...';
     loadingText.className = 'capture-loading-text no-print';
@@ -552,6 +728,11 @@ async function captureAndShareImage(phaseId, fileName) {
             onclone: (clonedDoc) => {
                 clonedDoc.getElementById(phaseId)?.querySelector('.card')
                     ?.querySelectorAll('.no-print').forEach(btn => btn.style.visibility = 'hidden');
+                // ★★★ アップグレード 提案②: クローン側でも隠す ★★★
+                if (phaseId === 'phase6') {
+                    const clonedSwitchBtn = clonedDoc.getElementById('switch-color-btn');
+                    if (clonedSwitchBtn) clonedSwitchBtn.style.display = 'none';
+                }
             }
         });
 
@@ -582,6 +763,10 @@ async function captureAndShareImage(phaseId, fileName) {
         alert(`画像の保存に失敗しました: ${error.message}`);
     } finally {
         buttonsToHide.forEach(btn => btn.style.visibility = 'visible');
+        // ★★★ アップグレード 提案②: カラー切替ボタンを元に戻す ★★★
+        if (phaseId === 'phase6' && switchColorBtn && switchColorBtn.dataset.otherColorKey) {
+            switchColorBtn.style.display = 'block';
+        }
         if (loadingText.parentNode === targetElement) {
              targetElement.removeChild(loadingText);
         }
@@ -619,6 +804,32 @@ function isProposalSelected() {
     return !!AppState.selectedProposal.hairstyle && !!AppState.selectedProposal.haircolor;
 }
 
+// ★★★ 新規追加 [Util] カラー切替ボタンのテキストとデータを更新 ★★★
+/**
+ * カラー切替ボタンのテキストと状態を、現在の選択に基づいて更新する
+ * @param {string} currentSelectedColorKey - *今表示されている*画像のカラーキー (例: 'color1')
+ */
+function updateColorSwitchButton(currentSelectedColorKey) {
+    const switchColorBtn = document.getElementById('switch-color-btn');
+    if (!switchColorBtn || !AppState.aiProposal || !AppState.aiProposal.haircolors) return;
+
+    // (1) もう一方のキーを見つける
+    const otherColorKey = currentSelectedColorKey === 'color1' ? 'color2' : 'color1';
+    const otherColor = AppState.aiProposal.haircolors[otherColorKey];
+
+    if (otherColor && otherColor.name) {
+        // (2) ボタンのテキストとデータを設定
+        switchColorBtn.textContent = `「${otherColor.name}」に変更する`;
+        switchColorBtn.dataset.otherColorKey = otherColorKey;
+        // (3) ボタンを表示
+        switchColorBtn.style.display = 'block';
+        switchColorBtn.disabled = false;
+    } else {
+        // (4) もう一方のカラーが見つからない場合は隠す
+        switchColorBtn.style.display = 'none';
+    }
+}
+
 
 // --- Main App Initialization ---
 async function main() {
@@ -626,7 +837,7 @@ async function main() {
     let loadingScreenHidden = false;
 
     try {
-        console.log("[main] Initializing Firebase App (yhd-ai)..."); // ★ 修正
+        console.log("[main] Initializing Firebase App (yhd-ai)...");
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const storage = getStorage(app);

@@ -2,27 +2,37 @@ import { escapeHtml, createResultItem, setTextContent } from './helpers.js';
 
 /**
  * 指定されたフェーズ（画面）に表示を切り替える
+ * ★★★ アップグレード 提案③: フェードアニメーションに対応 ★★★
  * @param {string} phaseId 表示したいフェーズのID ('phase1', 'phase2', etc.)
  */
 export function changePhase(phaseId) {
     console.log(`[changePhase] Changing to phase: ${phaseId}`);
-    // Hide all phase containers first
-    document.querySelectorAll('.phase-container').forEach(container => {
-        if (container) container.style.display = 'none'; // Add null check
-    });
+    
+    // 1. まず、現在表示されている（アクティブな）フェーズを探して、非表示（opacity: 0）にする
+    const currentActivePhase = document.querySelector('.phase-container.active');
+    if (currentActivePhase) {
+        currentActivePhase.classList.remove('active');
+    }
 
-    // Display the target phase container
+    // 2. ターゲットのフェーズを探す
     const targetPhase = document.getElementById(phaseId);
+    
     if (targetPhase) {
-        targetPhase.style.display = 'block';
+        // 3. ターゲットを表示（opacity: 1）にする
+        // display: block は CSS 側で .active クラスによって制御される
+        targetPhase.classList.add('active');
         console.log(`[changePhase] Phase ${phaseId} displayed.`);
+        
+        // 画面切り替え時に最上部までスクロール
+        window.scrollTo(0, 0); 
     } else {
         console.error(`[changePhase] Phase container with id "${phaseId}" not found.`);
         // Fallback to phase1 if target is not found
         const phase1 = document.getElementById('phase1');
-        if(phase1) phase1.style.display = 'block';
+        if(phase1) phase1.classList.add('active');
     }
 }
+
 
 /**
  * 診断結果（フェーズ4）をHTMLに描画する
@@ -33,10 +43,16 @@ export function displayDiagnosisResult(result) {
     const faceResultsContainer = document.getElementById('face-results');
     const skeletonResultsContainer = document.getElementById('skeleton-results');
     const personalColorResultsContainer = document.getElementById('personal-color-results');
+    // ★★★ アップグレード ステップ1: 髪の状態コンテナを取得 ★★★
+    const hairConditionResultsContainer = document.getElementById('hair-condition-results');
+
 
     if (faceResultsContainer) faceResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] faceResultsContainer not found");
     if (skeletonResultsContainer) skeletonResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] skeletonResultsContainer not found");
     if (personalColorResultsContainer) personalColorResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] personalColorResultsContainer not found");
+    // ★★★ アップグレード ステップ1: 髪の状態コンテナをクリア ★★★
+    if (hairConditionResultsContainer) hairConditionResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] hairConditionResultsContainer not found");
+
 
     if (!result) {
         console.warn("[displayDiagnosisResult] No result data to display.");
@@ -54,10 +70,22 @@ export function displayDiagnosisResult(result) {
 
     if (result.skeleton && skeletonResultsContainer) {
         // console.log("[displayDiagnosisResult] Populating skeleton results...");
-        const skeletonMap = { neckLength: "首の長さ", faceShape: "顔の形", bodyLine: "ボディライン", shoulderLine: "肩のライン" };
+        // ★★★ アップグレード ステップ1: 骨格・ボディの項目を強化版に対応 ★★★
+        const skeletonMap = { 
+            neckLength: "首の長さ", 
+            faceShape: "顔の形", 
+            bodyLine: "ボディライン", 
+            shoulderLine: "肩のライン",
+            // ★ 新規項目
+            faceStereoscopy: "顔の立体感", 
+            bodyTypeFeature: "体型の特徴" 
+        };
         Object.entries(result.skeleton).forEach(([key, value]) => {
-            const items = createResultItem(skeletonMap[key] || key, value);
-            skeletonResultsContainer.append(...items);
+            // skeletonMap[key] が存在する場合のみ表示 (古い項目も新しい項目もカバー)
+            if (skeletonMap[key]) {
+                const items = createResultItem(skeletonMap[key], value);
+                skeletonResultsContainer.append(...items);
+            }
         });
     }
 
@@ -69,6 +97,24 @@ export function displayDiagnosisResult(result) {
              personalColorResultsContainer.append(...items);
          });
     }
+
+    // ★★★ アップグレード ステップ1: 「現在の髪の状態」を描画するロジック ★★★
+    if (result.hairCondition && hairConditionResultsContainer) {
+        // console.log("[displayDiagnosisResult] Populating hair condition results...");
+        const hairMap = {
+            quality: "髪質",
+            curlType: "クセ",
+            damageLevel: "ダメージ",
+            volume: "毛量"
+        };
+        Object.entries(result.hairCondition).forEach(([key, value]) => {
+            if (hairMap[key]) { // スキーマで定義されたキーのみ表示
+                const items = createResultItem(hairMap[key], value);
+                hairConditionResultsContainer.append(...items);
+            }
+        });
+    }
+
      // console.log("[displayDiagnosisResult] Finished displaying results.");
 }
 
@@ -83,16 +129,17 @@ export function displayProposalResult(proposal, onProposalClick) {
     const haircolorContainer = document.getElementById('haircolor-proposal');
     const bestColorsContainer = document.getElementById('best-colors-proposal');
     const makeupContainer = document.getElementById('makeup-proposal');
+    // ★★★ アップグレード 提案①: ファッション提案コンテナを取得 ★★★
+    const fashionContainer = document.getElementById('fashion-proposal');
 
     if (hairstyleContainer) hairstyleContainer.innerHTML = ''; else console.warn("[displayProposalResult] hairstyleContainer not found");
     if (haircolorContainer) haircolorContainer.innerHTML = ''; else console.warn("[displayProposalResult] haircolorContainer not found");
-    if (bestColorsContainer) bestColorsContainer.innerHTML = ''; else console.warn("[displayProposalResult] bestColorsContainer not found");
+    if (bestColorsContainer) bestColorsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] bestColorsContainer not found");
     if (makeupContainer) makeupContainer.innerHTML = ''; else console.warn("[displayProposalResult] makeupContainer not found");
+    // ★★★ アップグレード 提案①: ファッション提案コンテナをクリア ★★★
+    if (fashionContainer) fashionContainer.innerHTML = ''; else console.warn("[displayProposalResult] fashionContainer not found");
     setTextContent('top-stylist-comment-text', '');
     
-    // AppState への依存を削除 (呼び出し元でリセットしてもらう)
-    // AppState.selectedProposal = { hairstyle: null, haircolor: null };
-    // checkProposalSelection(); 
 
     if (!proposal) {
         console.warn("[displayProposalResult] No proposal data to display.");
@@ -155,6 +202,23 @@ export function displayProposalResult(proposal, onProposalClick) {
             items[1].className = 'makeup-item-value';
             makeupContainer.append(...items);
         });
+    }
+
+    // ★★★ アップグレード 提案①: ファッション提案を描画 ★★★
+    if (proposal.fashion && fashionContainer) {
+        // console.log("[displayProposalResult] Populating fashion...");
+        if (proposal.fashion.recommendedStyles && proposal.fashion.recommendedStyles.length > 0) {
+            const items = createResultItem("似合うスタイル", proposal.fashion.recommendedStyles.join(' / ')); 
+            items[0].className = 'makeup-item-label'; 
+            items[1].className = 'makeup-item-value';
+            fashionContainer.append(...items);
+        }
+        if (proposal.fashion.recommendedItems && proposal.fashion.recommendedItems.length > 0) {
+            const items = createResultItem("似合うアイテム", proposal.fashion.recommendedItems.join(' / ')); 
+            items[0].className = 'makeup-item-label'; 
+            items[1].className = 'makeup-item-value';
+            fashionContainer.append(...items);
+        }
     }
 
     if (proposal.comment) {

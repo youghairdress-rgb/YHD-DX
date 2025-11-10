@@ -6,18 +6,20 @@
  */
 
 // Firebase SDK
-const {onRequest} = require("firebase-functions/v2/https");
+// ★★★ 根本的なエラー修正: インポートパスを /v2 から /v2/https に変更 ★★★
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-// ★ 追記: Firebase Auth と Node.js の https モジュール
-const {getAuth} = require("firebase-admin/auth");
-const https = require("https");
 
-// ★ 修正: CORSを有効にする（v2のonRequestではオプションとして渡す）
+// ★ 修正: CORS設定
+// v2.onRequest では、CORSミドルウェア (cors) は不要
+// 代わりに、関数のオプションで `cors: { origin: true }` などを指定する
 const corsOptions = {
+  // ★ 修正: 開発環境では true (すべて許可) にする
+  // (本番環境では "https://yhd-ai.web.app" のようにドメインを指定)
   cors: {
-    origin: true, // ★ 修正: "https://yhd-ai.web.app" から true に変更（開発用にすべてのオリジンを許可）
+    origin: true,
     methods: ["POST", "GET", "OPTIONS"],
   },
 };
@@ -39,6 +41,27 @@ try {
 } catch (e) {
   logger.error("Failed to get Firebase Storage service:", e);
 }
+// ★★★ アップグレード ステップ2: バケット名を明示的に取得 ★★★
+// (gs:// URI を組み立てるために必要)
+let defaultBucketName;
+try {
+    defaultBucketName = admin.app().options.storageBucket;
+    if (!defaultBucketName) {
+        // yhd-ai.appspot.com
+        const projectId = admin.app().options.projectId;
+        if (projectId) {
+            defaultBucketName = `${projectId}.appspot.com`;
+            logger.warn(`Storage Bucket name was missing, inferred as: ${defaultBucketName}`);
+        } else {
+            throw new Error("Default Storage Bucket name not found and Project ID is missing.");
+        }
+    }
+    logger.info(`Default Storage Bucket name: ${defaultBucketName}`);
+} catch (e) {
+    logger.error("Failed to get Default Storage Bucket name:", e);
+    // この関数が失敗しても、他の関数は動作する可能性があるため、ここでは致命的エラーとしない
+}
+
 
 // --- シークレットの定義 ---
 // firebase functions:secrets:set LLM_APIKEY で設定したシークレットを定義
@@ -47,8 +70,8 @@ const llmApiKey = defineSecret("LLM_APIKEY");
 const imageGenApiKey = defineSecret("IMAGEGEN_APIKEY");
 
 
-// --- AIレスポンスのJSONスキーマ定義 ---
-// PDF（フェーズ4, 5）に基づき、AIにこの構造で返すよう強制する
+// --- AIレスポンスのJSONスキーマ定義 (ステップ1 強化版) ---
+// ★★★ アップグレード 提案①: ファッション提案を追加 ★★★
 const AI_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -60,7 +83,7 @@ const AI_RESPONSE_SCHEMA = {
           "properties": {
             "nose": {"type": "STRING", "description": "鼻の特徴 (例: 高い, 丸い)"},
             "mouth": {"type": "STRING", "description": "口の特徴 (例: 大きい, 薄い)"},
-            "eyes": {"type": "STRING", "description": "目のの特徴 (例: 二重, つり目)"},
+            "eyes": {"type": "STRING", "description": "目の特徴 (例: 二重, つり目)"},
             "eyebrows": {"type": "STRING", "description": "眉の特徴 (例: アーチ型, 平行)"},
             "forehead": {"type": "STRING", "description": "おでこの特徴 (例: 広い, 狭い)"},
           },
@@ -73,8 +96,12 @@ const AI_RESPONSE_SCHEMA = {
             "faceShape": {"type": "STRING", "description": "顔の形 (例: 丸顔, 面長, ベース顔, 卵型)"},
             "bodyLine": {"type": "STRING", "description": "ボディライン (例: ストレート, ウェーブ, ナチュラル)"},
             "shoulderLine": {"type": "STRING", "description": "肩のライン (例: なで肩, いかり肩, 標準)"},
+            // ★★★ アップグレード ステップ1: 項目追加 ★★★
+            "faceStereoscopy": {"type": "STRING", "description": "顔の立体感 (例: 立体的, 平面的, 標準)"},
+            "bodyTypeFeature": {"type": "STRING", "description": "体型の特徴 (例: 上重心(ストレートタイプ), 下重心(ウェーブタイプ), 骨感が目立つ(ナチュラルタイプ))"},
           },
-          "required": ["neckLength", "faceShape", "bodyLine", "shoulderLine"],
+          // ★★★ アップグレード ステップ1: 必須項目に追加 ★★★
+          "required": ["neckLength", "faceShape", "bodyLine", "shoulderLine", "faceStereoscopy", "bodyTypeFeature"],
         },
         "personalColor": {
           "type": "OBJECT",
@@ -87,8 +114,20 @@ const AI_RESPONSE_SCHEMA = {
           },
           "required": ["baseColor", "season", "brightness", "saturation", "eyeColor"],
         },
+        // ★★★ アップグレード ステップ1: 「現在の髪の状態」カテゴリを追加 ★★★
+        "hairCondition": {
+            "type": "OBJECT",
+            "description": "写真（と将来の動画）から分析した現在の髪の状態",
+            "properties": {
+                "quality": {"type": "STRING", "description": "髪質 (例: 硬い, 柔らかい, 普通)"},
+                "curlType": {"type": "STRING", "description": "クセ (例: 直毛, 波状毛, 捻転毛)"},
+                "damageLevel": {"type": "STRING", "description": "ダメージレベル (例: 低(健康), 中(やや乾燥), 高(要ケア))"},
+                "volume": {"type": "STRING", "description": "毛量 (例: 多い, 普通, 少ない)"},
+            },
+            "required": ["quality", "curlType", "damageLevel", "volume"],
+        },
       },
-      "required": ["face", "skeleton", "personalColor"],
+      "required": ["face", "skeleton", "personalColor", "hairCondition"], // ★ 必須に追加
     },
     "proposal": {
       "type": "OBJECT",
@@ -108,7 +147,7 @@ const AI_RESPONSE_SCHEMA = {
             "style2": {
               "type": "OBJECT",
               "properties": {
-                "name": {"type": "STRING", "description": "ヘアスタイルの名前 (例: シースルーバングショート)"},
+                "name": {"type": "STRING", "description": "ヘアスタイルのの名前 (例: シースルーバングショート)"},
                 "description": {"type": "STRING", "description": "スタイルの説明 (50-100文字程度)"},
               },
               "required": ["name", "description"],
@@ -160,9 +199,28 @@ const AI_RESPONSE_SCHEMA = {
           },
           "required": ["eyeshadow", "cheek", "lip"],
         },
+        // ★★★ アップグレード 提案①: ファッション提案のスキーマを追加 ★★★
+        "fashion": {
+          "type": "OBJECT",
+          "description": "骨格診断に基づいた似合うファッション提案",
+          "properties": {
+            "recommendedStyles": {
+              "type": "ARRAY",
+              "items": {"type": "STRING"},
+              "description": "似合うファッションスタイル (2つ程度。例: Aライン, Iライン)"
+            },
+            "recommendedItems": {
+              "type": "ARRAY",
+              "items": {"type": "STRING"},
+              "description": "似合うファッションアイテム (2つ程度。例: Vネックニット, テーパードパンツ)"
+            }
+          },
+          "required": ["recommendedStyles", "recommendedItems"]
+        },
         "comment": {"type": "STRING", "description": "AIトップヘアスタイリストによる総評 (200-300文字程度)"},
       },
-      "required": ["hairstyles", "haircolors", "bestColors", "makeup", "comment"],
+      // ★★★ アップグレード 提案①: 必須項目に追加 ★★★
+      "required": ["hairstyles", "haircolors", "bestColors", "makeup", "fashion", "comment"],
     },
   },
   "required": ["result", "proposal"],
@@ -171,7 +229,12 @@ const AI_RESPONSE_SCHEMA = {
 
 // --- 診断リクエスト関数 (v2) ---
 exports.requestDiagnosis = onRequest(
-    {...corsOptions, secrets: [llmApiKey], timeoutSeconds: 120},
+    {
+      ...corsOptions,
+      secrets: [llmApiKey],
+      timeoutSeconds: 300, // 5分
+      memory: "2GiB",      // 2GiB に増強
+    },
     async (req, res) => {
       // 1. メソッドとAPIキーのチェック
       if (req.method !== "POST") {
@@ -189,55 +252,91 @@ exports.requestDiagnosis = onRequest(
 
       // 2. リクエストデータの取得
       const {fileUrls, userProfile, gender} = req.body;
-      if (!fileUrls || !fileUrls["item-front-photo"] || !userProfile || !gender) {
+      if (!fileUrls || !userProfile || !gender) {
         logger.error("[requestDiagnosis] Bad Request: Missing data.", {body: req.body});
-        res.status(400).json({error: "Bad Request", message: "Missing required data (fileUrls[item-front-photo], userProfile, gender)."});
+        res.status(400).json({error: "Bad Request", message: "Missing required data (fileUrls, userProfile, gender)."});
         return;
+      }
+      
+      const requiredKeys = ['item-front-photo', 'item-side-photo', 'item-back-photo', 'item-front-video', 'item-back-video'];
+      const missingKeys = requiredKeys.filter((key) => !fileUrls[key]);
+      if (missingKeys.length > 0) {
+           logger.error(`[requestDiagnosis] Bad Request: Missing fileUrls: ${missingKeys.join(", ")}`);
+           res.status(400).json({error: "Bad Request", message: `Missing required fileUrls: ${missingKeys.join(", ")}`});
+           return;
       }
 
       logger.info(`[requestDiagnosis] Received request for user: ${userProfile.firebaseUid || userProfile.userId}`);
 
-      // 3. 画像データの取得 (正面写真のみ)
-      let imageBase64;
-      let imageMimeType;
+      // 3. 5つのファイルすべてを fetch して Base64 に変換
+      const parts = [
+        {text: `この顧客（性別: ${gender}）を診断し、提案してください。`},
+      ];
+
       try {
-        const imageUrl = fileUrls["item-front-photo"];
-        logger.info(`[requestDiagnosis] Fetching image from: ${imageUrl.substring(0, 50)}...`);
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
-        }
-        const contentType = imageResponse.headers.get("content-type");
-        if (!contentType || !contentType.startsWith("image/")) {
-          throw new Error(`Invalid content-type: ${contentType}`);
-        }
-        imageMimeType = contentType;
-        const imageBuffer = await imageResponse.arrayBuffer();
-        imageBase64 = Buffer.from(imageBuffer).toString("base64");
-        logger.info(`[requestDiagnosis] Image fetched successfully. MimeType: ${imageMimeType}, Base64 Length: ${imageBase64.length}`);
+        logger.info("[requestDiagnosis] Fetching 5 files from Storage...");
+
+        const fetchPromises = requiredKeys.map(async (key) => {
+          const url = fileUrls[key];
+           const mimeType = key.includes('video') 
+                ? (url.includes('.mp4') ? 'video/mp4' : 'video/quicktime') 
+                : (url.includes('.png') ? 'image/png' : 'image/jpeg'); // デフォルトをjpegに
+
+          logger.info(`[requestDiagnosis] Fetching ${key} (Type: ${mimeType}) from ${url.substring(0, 50)}...`);
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString("base64");
+          logger.info(`[requestDiagnosis] Fetched ${key} successfully. Base64 Length: ${base64.length}`);
+
+          return {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64,
+            },
+          };
+        });
+
+        const fetchedParts = await Promise.all(fetchPromises);
+        parts.push(...fetchedParts);
+
+        logger.info("[requestDiagnosis] All 5 files fetched and converted to Base64 successfully.");
       } catch (fetchError) {
-        logger.error("[requestDiagnosis] Failed to fetch or process image:", fetchError);
-        res.status(500).json({error: "Image Fetch Error", message: `画像の取得に失敗しました: ${fetchError.message}`});
+        logger.error("[requestDiagnosis] Failed to fetch or process files:", fetchError);
+        res.status(500).json({error: "File Fetch Error", message: `ファイル（画像・動画）の取得に失敗しました: ${fetchError.message}`});
         return;
       }
 
       // 4. Gemini API リクエストペイロードの作成
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
+      // ★★★ アップグレード 提案①: systemPrompt にファッション提案の指示を追加 ★★★
       const systemPrompt = `
 あなたは日本の高名なトップヘアスタイリストAIです。
-顧客から提供された写真（正面）と性別（${gender}）に基づき、以下のタスクを実行してください。
+顧客から提供された**5つの素材（正面写真、サイド写真、バック写真、正面動画、バック動画）**と性別（${gender}）に基づき、以下のタスクを実行してください。
 
-1.  **診断 (result)**: 写真から顧客の顔、骨格、パーソナルカラーの特徴を詳細に分析し、指定されたJSONスキーマの'result'フィールドに入力してください。
-2.  **提案 (proposal)**: 診断結果に基づき、以下の提案を'proposal'フィールドに入力してください。
-    * **hairstyles**: 顧客に似合うヘアスタイルを2つ提案。具体的で、なぜそれが似合うのかの短い説明（50-100文字）を含めてください。
-    * **haircolors**: 顧客に似合うヘアカラーを2つ提案。説明（50-100文字）を含めてください。
-    * **bestColors**: 診断したパーソナルカラー（特にシーズン）に基づき、顧客の魅力を引き出す「相性ベストカラー」を4色提案してください。色名（例: コーラルピンク）と、色見本表示用のHEXコード（例: #FF7F50）を必ずセットで生成してください。
-    * **makeup**: 診断したパーソナルカラーに基づき、「似合うメイク」としてアイシャドウ、チーク、リップの色をそれぞれ提案してください。
-    * **重要:** ヘアスタイルの提案は、以下の参考サイトにあるような、日本の現代のトレンドスタイルを強く意識してください。
-    * 参考サイト1: https://beauty.hotpepper.jp/catalog/
-    * 参考サイト2: https://www.ozmall.co.jp/hairsalon/catalog/
-3.  **総評 (comment)**: 診断結果と提案を基に、顧客の魅力的な特徴を称え、全体的なアドバイスを総評（200-300文字）として'comment'フィールドに入力してください。
+1.  **診断 (result)**:
+    * **顔 (face)**: 主に正面写真と正面動画から特徴を分析してください。
+    * **骨格 (skeleton)**:
+        * \`neckLength\`, \`faceShape\`, \`shoulderLine\`: 正面・サイド写真から分析してください。
+        * **\`faceStereoscopy\` (顔の立体感)**: 正面動画（顔の振り）とサイド写真を比較して「立体的」「平面的」などを判断してください。
+        * **\`bodyTypeFeature\` (体型の特徴)**: 写真全体から「上重心」「下重心」「骨感が目立つ」などを判断してください。
+    * **パーソナルカラー (personalColor)**: 主に正面写真と正面動画から分析してください。
+    * **【重要】現在の髪の状態 (hairCondition)**:
+        * **\`quality\` (髪質)**, **\`curlType\` (クセ)**, **\`damageLevel\` (ダメージ)**, **\`volume\` (毛量)**:
+        * **3枚の写真と2本の動画すべて**を詳細に分析してください。特に動画は、髪が動いたときの「しなり方（髪質）」「内側のうねり（クセ）」「ツヤの動き（ダメージ）」「膨らみ方（毛量）」を判断する上で最も重要です。
+
+2.  **提案 (proposal)**: 診断結果（特に「現在の髪の状態」と「骨格」）に基づき、以下の提案をしてください。
+    * **hairstyles**: 顧客の骨格だけでなく、**現在の髪質やクセ（例：波状毛）でも再現可能か**という観点で、最適なスタイルを2つ提案してください。
+    * **haircolors**: 診断したパーソナルカラーとダメージレベルに基づき、提案してください。
+    * **bestColors**: パーソナルカラーに基づき、HEXコード付きで4色提案してください。
+    * **makeup**: パーソナルカラーに基づき、提案してください。
+    * **fashion**: 診断結果の \`skeleton.bodyTypeFeature\`（骨格タイプ）に基づき、似合うファッションスタイルを2つ、具体的なアイテムを2つ提案してください。
+    * **comment (総評)**: 全体を総括し、特に**現在の髪の状態（例：ダメージレベル高）**に基づいた具体的なケアアドバイス（例：サロンでの髪質改善トリートメント推奨）を必ず含めてください。
 
 回答は必ず指定されたJSONスキーマに従い、JSONオブジェクトのみを返してください。前置きやマークダウン（'''json ... '''）は一切含めないでください。
 `;
@@ -249,15 +348,7 @@ exports.requestDiagnosis = onRequest(
         contents: [
           {
             role: "user",
-            parts: [
-              {text: `この顧客（性別: ${gender}）を診断し、提案してください。`},
-              {
-                inlineData: {
-                  mimeType: imageMimeType,
-                  data: imageBase64,
-                },
-              },
-            ],
+            parts: parts, // ★★★ 5つのファイル(Base64) + テキストプロンプト
           },
         ],
         generationConfig: {
@@ -292,9 +383,10 @@ exports.requestDiagnosis = onRequest(
         }
 
         // パースしたJSONをチェック
-        if (!parsedJson.result || !parsedJson.proposal || !parsedJson.proposal.bestColors || !parsedJson.proposal.makeup) {
-           logger.error("[requestDiagnosis] Parsed JSON missing required keys (result/proposal/bestColors/makeup).", {parsed: parsedJson});
-           throw new Error("AIの応答に必要なキー（result, proposal, bestColors, makeup）が欠けています。");
+        // ★★★ アップグレード 提案①: fashion もチェック ★★★
+        if (!parsedJson.result || !parsedJson.proposal || !parsedJson.result.hairCondition || !parsedJson.proposal.fashion) {
+           logger.error("[requestDiagnosis] Parsed JSON missing required keys (result/proposal/hairCondition/fashion).", {parsed: parsedJson});
+           throw new Error("AIの応答に必要なキー（result, proposal, hairCondition, fashion）が欠けています。");
         }
 
         res.status(200).json(parsedJson); // パースしたJSONを返す
@@ -353,10 +445,11 @@ exports.generateHairstyleImage = onRequest(
           throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
         }
         const contentType = imageResponse.headers.get("content-type");
-        if (!contentType || !contentType.startsWith("image/")) {
-          throw new Error(`Invalid content-type: ${contentType}`);
-        }
-        imageMimeType = contentType;
+        
+        // ★ 修正: 圧縮によりJPEGになっているため、MIMEタイプを決め打ち
+        imageMimeType = "image/jpeg";
+        logger.warn(`[generateHairstyleImage] Content-Type was ${contentType}, but forcing image/jpeg due to client-side compression.`);
+        
         const imageBuffer = await imageResponse.arrayBuffer();
         imageBase64 = Buffer.from(imageBuffer).toString("base64");
         logger.info(`[generateHairstyleImage] Image fetched successfully. MimeType: ${imageMimeType}`);
@@ -421,12 +514,6 @@ unnatural color, flat, dull, lifeless hair, helmet-like, wig, hat, hair accessor
         }
 
         logger.info("[generateHairstyleImage] Gemini API request successful. Image generated.");
-
-        // ★★★ 削除: Firebase Storageへのアップロード処理 (ここから) ★★★
-        // const bucket = storage.bucket(); ...
-        // const [signedUrl] = await file.getSignedUrl(...);
-        // logger.info(`[generateHairstyleImage] Signed URL generated successfully.`);
-        // ★★★ 削除 (ここまで) ★★★
 
         // ★ 修正: 成功レスポンスとしてBase64データを直接返す
         res.status(200).json({
@@ -543,12 +630,6 @@ exports.refineHairstyleImage = onRequest(
 
         logger.info("[refineHairstyleImage] Gemini API request successful. Image refined.");
 
-        // ★★★ 削除: Firebase Storageへのアップロード処理 (ここから) ★★★
-        // const bucket = storage.bucket(); ...
-        // const [signedUrl] = await file.getSignedUrl(...);
-        // logger.info(`[refineHairstyleImage] Signed URL generated successfully.`);
-        // ★★★ 削除 (ここまで) ★★★
-
         // ★ 修正: 成功レスポンスとしてBase64データを直接返す
         res.status(200).json({
           message: "Image refined successfully.",
@@ -568,98 +649,71 @@ exports.helloWorld = onRequest(corsOptions, (req, res) => {
   res.status(200).send("Hello from Firebase Functions v2!");
 });
 
-// ★★★ ここから追記 (認証用Function) ★★★
-
-/**
- * LINE AccessToken を検証し、Firebaseカスタムトークンを生成する (v2)
- * api.js の initializeLiffAndAuth から呼び出される
- */
+// ★★★ 追加: 認証用Function ★★★
+// (onRequest を使用し、v2の作法に合わせる)
 exports.createFirebaseCustomToken = onRequest(
-    corsOptions, // 既存のCORSオプションを流用
+    {...corsOptions, secrets: []}, // シークレットは不要
     async (req, res) => {
-      // 1. メソッドとリクエストボディのチェック
       if (req.method !== "POST") {
         logger.warn(`[createFirebaseCustomToken] Method Not Allowed: ${req.method}`);
         res.status(405).json({error: "Method Not Allowed"});
         return;
       }
-
-      const {accessToken} = req.body;
-      if (!accessToken) {
-        logger.error("[createFirebaseCustomToken] Bad Request: Missing accessToken.");
-        res.status(400).json({error: "Bad Request", message: "accessToken is required."});
-        return;
-      }
-
+      
       try {
-        // 2. LINE Profile API (v2.1) を叩き、accessTokenを検証してLINE User IDを取得
-        const lineUserId = await verifyLineTokenAndGetUid(accessToken);
-        if (!lineUserId) {
-             throw new Error("Invalid LINE Access Token.");
+        const {accessToken} = req.body;
+        if (!accessToken) {
+          logger.error("[createFirebaseCustomToken] Access token is missing.");
+          res.status(400).json({error: "Access token is missing."});
+          return;
         }
-        logger.info(`[createFirebaseCustomToken] Verified LINE User ID: ${lineUserId}`);
 
-        // 3. Firebase Admin SDK を使い、そのLINE User IDをUIDとしてカスタムトークンを生成
-        // (注: Auth上に同名のUIDを持つユーザーが自動作成される)
-        const customToken = await getAuth().createCustomToken(lineUserId);
-        logger.info(`[createFirebaseCustomToken] Custom token created for UID: ${lineUserId}`);
-
-        // 4. カスタムトークンをクライアントに返す
-        res.status(200).json({customToken: customToken});
-      } catch (error) {
-        logger.error("[createFirebaseCustomToken] Failed to create custom token:", error);
-        if (error.message === "Invalid LINE Access Token.") {
-            // LINEトークンが無効な場合は 401 Unauthorized を返す
-            res.status(401).json({error: "Unauthorized", message: "Invalid LINE Access Token."});
-        } else {
-            // その他のエラー (Firebase Admin SDKエラーなど)
-            res.status(500).json({error: "Internal Server Error", message: error.message});
-        }
-      }
-    },
-);
-
-/**
- * [補助関数] LINE Profile API を呼び出してトークンを検証し、UIDを取得する
- * @param {string} accessToken
- * @return {Promise<string|null>} LINE User ID
- */
-async function verifyLineTokenAndGetUid(accessToken) {
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: "api.line.me",
-            path: "/v2/profile",
+        // LINE Profile API v2.1 を使ってアクセストークンを検証し、LINE User IDを取得
+        const lineResponse = await fetch("https://api.line.me/v2/profile", {
             method: "GET",
             headers: {
                 "Authorization": `Bearer ${accessToken}`,
             },
-        };
+        });
 
-        const req = https.request(options, (res) => {
-            let data = "";
-            res.on("data", (chunk) => { data += chunk; });
-            res.on("end", () => {
-                try {
-                    if (res.statusCode === 200) {
-                        const profile = JSON.parse(data);
-                        resolve(profile.userId); // 成功時、userIdを返す
-                    } else {
-                        // 401 (認証失敗) など
-                        logger.error(`[verifyLineToken] LINE API Error (Status: ${res.statusCode}): ${data}`);
-                        reject(new Error("Invalid LINE Access Token."));
-                    }
-                } catch (e) {
-                     reject(new Error(`Failed to parse LINE profile: ${e.message}`));
-                }
-            });
+        if (!lineResponse.ok) {
+            if (lineResponse.status === 401) {
+                logger.warn("[createFirebaseCustomToken] Invalid LINE access token.");
+                res.status(401).json({error: "Invalid access token."});
+                return;
+            }
+            logger.error(`[createFirebaseCustomToken] LINE API error: ${lineResponse.status}`);
+            res.status(lineResponse.status).json({error: "Failed to verify access token."});
+            return;
+        }
+
+        const profile = await lineResponse.json();
+        const lineUserId = profile.userId;
+        if (!lineUserId) {
+            logger.error("[createFirebaseCustomToken] LINE User ID not found in profile.");
+            res.status(500).json({error: "LINE User ID not found."});
+            return;
+        }
+        
+        // (重要) 取得した LINE User ID をそのまま Firebase の UID として使用する
+        const firebaseUid = lineUserId;
+
+        // Firebase Admin SDK を使ってカスタムトークンを生成
+        // (この時点で firebaseUid のユーザーがAuthに存在しない場合、自動的に作成される)
+        const customToken = await admin.auth().createCustomToken(firebaseUid);
+        
+        logger.info(`[createFirebaseCustomToken] Custom token created successfully for UID: ${firebaseUid}`);
+        res.status(200).json({customToken: customToken});
+      } catch (error) {
+        logger.error("[createFirebaseCustomToken] Error creating custom token:", error);
+        // ★ 重要: 権限エラー(iam.serviceAccounts.signBlob) もここに含まれる
+        res.status(500).json({
+            error: "Internal Server Error",
+            message: error.message || "Unknown error during token creation.",
         });
-        req.on("error", (e) => {
-            reject(new Error(`LINE API request failed: ${e.message}`));
-        });
-        req.end();
-    });
-}
-// ★★★ 追記ここまで ★★★
+      }
+    },
+);
 
 
 // --- ユーティリティ: リトライ付きAPI呼び出し ---
@@ -703,9 +757,19 @@ async function callGeminiApiWithRetry(url, payload, maxRetries = 3) {
         }
       } else {
         // 400 (Bad Request) など、リトライしても無駄なエラー
-        const errorBody = await response.json();
-        logger.error(`[callGeminiApiWithRetry] Received non-retriable status ${response.status}:`, errorBody);
-        throw new Error(`Gemini API failed with status ${response.status}: ${JSON.stringify(errorBody)}`);
+        let errorBodyText = await response.text();
+        let errorBody;
+        try {
+            errorBody = JSON.parse(errorBodyText);
+            logger.error(`[callGeminiApiWithRetry] Received non-retriable status ${response.status}:`, errorBody);
+        } catch(e) {
+            logger.error(`[callGeminiApiWithRetry] Received non-retriable status ${response.status} (non-json response):`, errorBodyText);
+            errorBody = { error: { message: errorBodyText } };
+        }
+        
+        // ★★★ アップグレード ステップ2: AIからのエラーメッセージをクライアントに返す ★★★
+        const errorMessage = errorBody?.error?.message || `Unknown API error (Status: ${response.status})`;
+        throw new Error(`Gemini API Error: (Code: ${errorBody?.error?.code || response.status}) ${errorMessage}`);
       }
     } catch (fetchError) {
       logger.error(`[callGeminiApiWithRetry] Fetch attempt ${attempt} failed:`, fetchError);

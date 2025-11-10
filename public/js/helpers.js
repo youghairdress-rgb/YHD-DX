@@ -97,3 +97,75 @@ export function base64ToBlob(base64, mimeType) {
         return null;
     }
 }
+
+/**
+ * ★★★ 新規追加: 画像圧縮ヘルパー ★★★
+ * 画像ファイルを指定した最大幅にリサイズし、JPEG品質で圧縮する
+ * @param {File} file - 元の画像ファイル
+ * @param {number} maxWidth - 最大幅 (これを超える場合はリサイズ)
+ * @param {number} quality - JPEGの品質 (0.0 - 1.0)
+ * @returns {Promise<File>} - 圧縮後のFileオブジェクト
+ */
+export function compressImage(file, maxWidth = 1024, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        // HEIC/HEIFの場合は圧縮をスキップ (canvasが非対応のため)
+        if (file.type === 'image/heic' || file.type === 'image/heif') {
+            console.warn(`[compressImage] Skipping compression for HEIC/HEIF: ${file.name}`);
+            resolve(file);
+            return;
+        }
+
+        const img = new Image();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            if (typeof e.target.result !== 'string') {
+                return reject(new Error('FileReader did not return a string.'));
+            }
+            img.src = e.target.result;
+        };
+        reader.onerror = (e) => reject(new Error(`FileReader error: ${e}`));
+        reader.readAsDataURL(file);
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            // 最大幅を超える場合はリサイズ
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return reject(new Error('Failed to get canvas context.'));
+            }
+
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // canvas.toBlob (JPEG, 品質指定)
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) {
+                        return reject(new Error('Canvas toBlob failed.'));
+                    }
+                    // 元のファイル名（拡張子抜き） + .jpg で新しいFileオブジェクトを作成
+                    const fileNameBase = file.name.split('.').slice(0, -1).join('.') || 'compressed';
+                    const compressedFile = new File([blob], `${fileNameBase}.jpg`, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                    });
+                    console.log(`[compressImage] Original: ${(file.size / 1024 / 1024).toFixed(2)}MB. Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+                    resolve(compressedFile);
+                },
+                'image/jpeg',
+                quality
+            );
+        };
+        img.onerror = (e) => reject(new Error(`Image load error: ${e}`));
+    });
+}

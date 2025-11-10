@@ -2,6 +2,9 @@
 :root {
     --primary-color: #2dd4bf; /* ティファニーブルー */
     --primary-color-light: #a7f3d0; /* 明るいティファニーブルー系 */
+    --primary-color-lighter: #f0fdfa; /* ティファニーブルー系 (ホバー/選択背景) */
+    --primary-color-dark: #14b8a6; /* ティファニーブルー系 (暗め) */
+    
     --dark-color: #0f172a;    /* より濃い青 (コントラスト用) */
     --text-color: #334155;      /* 基本テキスト (少し濃く) */
     --text-color-light: #64748b; /* 薄いテキスト */
@@ -19,27 +22,47 @@ body {
     padding: 20px;
     background-color: var(--bg-color);
     color: var(--text-color);
-    display: flex;
-    justify-content: center;
-    align-items: center; /* ローディングは中央に */
+    /* ★★★ 提案③: ローディング時の中央寄せを修正 (削除) ★★★ */
     min-height: 100vh;
     box-sizing: border-box;
     font-size: 16px; /* ベースフォントサイズ */
     line-height: 1.7; /* 行間を少し広げる */
 }
 
-/* --- ローディング画面 --- */
+/* ★★★ 提案③: ローディング画面の中央寄せ (bodyから移動) ★★★ */
 .loading-container {
     text-align: center;
     color: var(--dark-color);
+    /* 画面全体の中央に配置 */
+    display: flex; /* ★ 修正: デフォルトをflexに */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh; /* 画面の高さの80%を使って中央寄せ */
 }
 
 /* --- フェーズ管理 --- */
+/* ★★★ 提案③: フェードアニメーションのためのスタイル ★★★ */
 .phase-container {
-    display: none; /* JSで制御 */
+    display: none; /* JSが .active を付けるまで非表示 */
     width: 100%;
-    max-width: 450px; /* 少しだけ幅を広げる */
+    max-width: 450px;
+    margin: 0 auto; /* 左右中央寄せ */
+    
+    /* アニメーション設定 */
+    opacity: 0;
+    visibility: hidden;
+    /* ★ 修正: 消えるときは即座に visibility: hidden */
+    transition: opacity 0.3s ease-in-out, visibility 0s 0.3s; 
 }
+.phase-container.active {
+    display: block; /* 表示を有効化 */
+    opacity: 1;
+    visibility: visible;
+    /* ★ 修正: 現れるときは visibility を即座に */
+    transition: opacity 0.3s ease-in-out, visibility 0s 0s; 
+}
+
 
 /* カードスタイル調整 */
 .card {
@@ -150,6 +173,7 @@ body {
     color: var(--text-color-light);
 }
 
+/* ★★★ 提案③: 選択時の色をティファニーブルーに変更 ★★★ */
 .gender-selection input[type="radio"]:checked + label {
     background-color: var(--primary-color);
     color: white;
@@ -189,10 +213,10 @@ body {
     transition: background-color 0.2s ease, color 0.2s ease; /* アニメーション追加 */
 }
 
-/* アップロード完了時のアイコン背景色 */
+/* ★★★ 提案③: アップロード完了時のアイコンをティファニーブルー系に変更 ★★★ */
 .upload-icon.completed { /* JavaScript側でクラスを追加 */
-    background-color: var(--primary-color-light);
-    color: var(--primary-color);
+    background-color: var(--primary-color-lighter); /* #f0fdfa */
+    color: var(--primary-color-dark); /* #14b8a6 */
 }
 
 
@@ -236,7 +260,7 @@ button {
 }
 
 .btn-outline:hover:not(:disabled) { /* disabledでない場合のみホバー */
-    background-color: #f0fdfa; /* ホバー背景色 */
+    background-color: var(--primary-color-lighter); /* ホバー背景色 */
     transform: translateY(-1px);
 }
 
@@ -365,7 +389,7 @@ button {
 }
 .proposal-card {
     background-color: #f9fafb;
-    border: 1px solid var(--border-color); /* 枠線を少し細く */
+    border: 2px solid var(--border-color); /* ★★★ 提案③: 枠線を2pxに変更 ★★★ */
     padding: 18px; /* パディング調整 */
     border-radius: 16px; /* 角丸調整 */
     cursor: pointer;
@@ -377,12 +401,14 @@ button {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.07);
     border-color: #d1d5db; /* ホバー時の枠線 */
 }
+/* ★★★ 提案③: 選択時のスタイルをティファニーブルーに変更 ★★★ */
 .proposal-card.selected {
-    border-color: var(--primary-color);
-    background-color: #f0fdfa; /* 選択時の背景色 */
-    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2); /* 選択時のリング */
+    border-color: var(--primary-color-dark); /* 濃いティファニーブルー */
+    background-color: var(--primary-color-lighter); /* #f0fdfa */
+    box-shadow: 0 4px 12px rgba(45, 212, 191, 0.2); /* 影 */
     transform: none; /* 選択時は浮き上がらない */
 }
+
 .proposal-card strong {
     display: block;
     color: var(--dark-color);
@@ -398,7 +424,7 @@ button {
 }
 
 .top-stylist-comment {
-    background-color: #f0fdfa; /* 背景色調整 */
+    background-color: var(--primary-color-lighter); /* 背景色調整 */
     border-left: 4px solid var(--primary-color);
     padding: 18px; /* パディング調整 */
     border-radius: 12px; /* 角丸調整 */
@@ -475,7 +501,7 @@ button {
     border: none;
     border-radius: 30px;
     cursor: pointer;
-    background: linear-gradient(to right, #2dd4bf, #34d399); /* グラデーション */
+    background: linear-gradient(to right, var(--primary-color), var(--primary-color-dark)); /* ★★★ 提案③: グラデーションの色を統一 ★★★ */
     box-shadow: 0 4px 15px rgba(45, 212, 191, 0.3); /* 影調整 */
     transition: all 0.2s ease;
 }
@@ -536,7 +562,7 @@ button {
     border: 1px solid var(--primary-color);
     border-radius: 12px;
     cursor: pointer;
-    background-color: #f0fdfa; /* 薄い背景色 */
+    background-color: var(--primary-color-lighter); /* 薄い背景色 */
     transition: all 0.2s ease;
 }
 
