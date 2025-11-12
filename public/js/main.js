@@ -289,7 +289,7 @@ async function handleDiagnosisRequest() {
     console.log("[handleDiagnosisRequest] Starting diagnosis process.");
     const requestBtn = document.getElementById('request-diagnosis-btn');
     const statusTextElement = document.getElementById('diagnosis-status-text');
-
+    
     const updateStatusText = (text) => {
         if (statusTextElement) statusTextElement.textContent = text;
         console.log(`[StatusUpdate] ${text}`);
@@ -304,41 +304,57 @@ async function handleDiagnosisRequest() {
         // リセット
         AppState.uploadedFileUrls = {}; 
 
-        const uploadPromises = [];
-        const fileKeys = Object.keys(AppState.uploadedFiles);
+        // ▼▼▼ ★★★ スマホ停止バグ修正: Promise.all(forEach) から for...of (直列処理) に変更 ★★★ ▼▼▼
+        
+        // 実行順を定義
+        const uploadOrder = [
+            'item-front-photo', // 1/5
+            'item-side-photo',  // 2/5
+            'item-back-photo',  // 3/5
+            'item-front-video', // 4/5
+            'item-back-video'   // 5/5
+        ];
         let uploadedCount = 0;
 
-        // ▼▼▼ ★★★ 速度改善: 動画用プログレスコールバックを定義 ★★★ ▼▼▼
-        const onUploadProgress = (percentage, itemName) => {
-            const progress = Math.round(percentage);
-            let itemLabel = "動画ファイル";
-            if (itemName.includes('front-video')) itemLabel = "動画(4/5)";
-            if (itemName.includes('back-video')) itemLabel = "動画(5/5)";
+        // ▼▼▼ ★★★ スマホ停止バグ (0%) 修正: onUploadProgress を削除 ▼▼▼
+        // const onUploadProgress = (percentage, itemName) => {
+        //     const progress = Math.round(percentage);
+        //     let itemLabel = "動画ファイル";
+        //     // 処理中のカウントを正しく表示するために uploadedCount + 1 を使う
+        //     if (itemName.includes('front-video')) itemLabel = `動画(${uploadedCount + 1}/5)`;
+        //     if (itemName.includes('back-video')) itemLabel = `動画(${uploadedCount + 1}/5)`;
             
-            // UIのステータステキストを更新
-            updateStatusText(`${itemLabel}をアップロード中... ${progress}%`);
-        };
+        //     // UIのステータステキストを更新
+        //     updateStatusText(`${itemLabel}をアップロード中... ${progress}%`);
+        // };
         // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
-        fileKeys.forEach(key => {
+        // forEach の代わりに for...of ループを使用
+        for (const key of uploadOrder) {
             const file = AppState.uploadedFiles[key];
+            if (!file) {
+                // (念のため) ファイルが存在しない場合はエラー
+                throw new Error(`必須ファイル "${key}" が見つかりません。`);
+            }
+            
             let promise;
-
-            // ▼▼▼ ★★★ 表示不可バグ修正: 動画と写真で呼び出す関数を分岐 ★★★ ▼▼▼
+            
             if (key.includes('video')) {
                 // --- 動画の場合 ---
-                // Storageにアップロードするだけ（DBには保存しない）
+                // ▼▼▼ ★★★ スマホ停止バグ (0%) 修正: 準備中 -> アップロード中 に変更 ▼▼▼
+                updateStatusText(`動画(${uploadedCount + 1}/5)をアップロード中...`);
+                // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
                 console.log(`[handleDiagnosisRequest] Uploading (Storage Only): ${key}`);
                 promise = uploadFileToStorageOnly(
                     AppState.firebase.storage,
                     AppState.userProfile.firebaseUid,
                     file,
-                    key,
-                    onUploadProgress // ★ 速度改善: 進捗コールバックを渡す
+                    key
+                    // onUploadProgress を渡さない
                 );
             } else {
                 // --- 写真の場合 ---
-                // Storageにアップロード + Firestoreにも記録（ギャラリー保存）
+                updateStatusText(`写真(${uploadedCount + 1}/5)をアップロード中...`);
                 console.log(`[handleDiagnosisRequest] Uploading (and Saving to Gallery): ${key}`);
                 promise = saveImageToGallery(
                     AppState.firebase.firestore,
@@ -346,33 +362,39 @@ async function handleDiagnosisRequest() {
                     AppState.userProfile.firebaseUid,
                     file,
                     key
+                    // (写真は高速なので進捗コールバックは省略)
                 );
             }
-            // ▲▲▲ ★★★ 分岐ここまで ★★★ ▲▲▲
 
-            // プロミスチェーンでUI更新とURL保存
-            const chainedPromise = promise.then(result => {
-                uploadedCount++;
-                // ★ 修正: 写真が完了したときだけシンプルなテキストを出す
-                if (result && result.itemName && !result.itemName.includes('video')) {
-                    updateStatusText(`写真(${uploadedCount}/5)をアップロード完了`);
-                }
-                
-                // どちらの関数も { url: "..." } を返すので、AIリクエスト用にURLを保存
-                if(result) {
-                    AppState.uploadedFileUrls[key] = result.url; // HTTPS URL
-                }
-                
-                return result;
-            });
+            // 1つずつ順番に await して完了を待つ
+            const result = await promise;
+            uploadedCount++;
             
-            uploadPromises.push(chainedPromise);
-        });
+            // UI更新 (完了直後)
+            // 動画の場合、onUploadProgress が 100% を表示した直後なので、
+            // 「完了」のテキストを確実に出す
+            updateStatusText(`ファイル (${uploadedCount}/5) アップロード完了`);
 
-        await Promise.all(uploadPromises);
+            // URLを保存
+            if(result) {
+                AppState.uploadedFileUrls[key] = result.url; // HTTPS URL
+            }
+            
+            // 次のループに進む前に、UIが更新されるよう短い待機を入れる
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+
+
         // ★ 修正: 写真3枚、動画2本がアップロードされたことをログで確認
         console.log("[handleDiagnosisRequest] All 5 files uploaded (Photos to Gallery, Videos to Storage only).");
+        
+        // ▼▼▼ ★★★ スマホ停止バグ修正: UIを強制的に更新させる ★★★ ▼▼▼
         updateStatusText('AIに診断をリクエスト中...');
+        // 短い待機を挟んで、ブラウザにUIの再描画を強制する
+        await new Promise(resolve => setTimeout(resolve, 100)); // 100ms待機
+        // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
         // ★★★ アップグレード ステップ2: AIに渡すデータを fileUrls に戻す ★★★
         const requestData = {
@@ -403,6 +425,11 @@ async function handleDiagnosisRequest() {
 
     } catch (error) {
         console.error("[handleDiagnosisRequest] Error:", error);
+        
+        // ▼▼▼ ★★★ 修正: alert の前に、ローディング画面のテキストをエラー表示に変更 ★★★ ▼▼▼
+        updateStatusText('アップロード中にエラーが発生しました。');
+        // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+
         alert(`診断リクエストの処理中にエラーが発生しました。\n詳細: ${error.message}`);
         changePhase('phase3');
         // アップロードに失敗したファイルのみリセット

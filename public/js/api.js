@@ -88,22 +88,29 @@ export const initializeLiffAndAuth = (liffId, auth) => {
  * ファイルをFirebase Storageにアップロードする *だけ* の関数。
  * (Firestoreには記録しない)
  * AIへの診断リクエスト（動画など）の一時アップロードに使用します。
- * @param {object} storage - Storage (v9 Modular) インスタンス
+ * * ▼▼▼ ★★★ スマホ停止バグ (0%) 修正 ★★★ ▼▼▼
+ * 'onProgress' コールバックを削除。
+ * 'uploadBytesResumable' タスクに .on() リスナーをアタッチすると、
+ * モバイル/LIFF環境で 'await uploadTask' が解決しない（ハングする）問題があるため。
+ * * @param {object} storage - Storage (v9 Modular) インスタンス
  * @param {string} firebaseUid - 顧客のFirebase UID (保存パス用)
  * @param {File} file - アップロードするファイル
  * @param {string} itemName - ファイルの識別子 (例: 'item-front-video')
- * @param {function(percentage: number, itemName: string): void} onProgress - アップロード進捗コールバック
  * @returns {Promise<{url: string, path: string, itemName: string}>}
  */
-export const uploadFileToStorageOnly = async (storage, firebaseUid, file, itemName, onProgress) => {
+export const uploadFileToStorageOnly = async (storage, firebaseUid, file, itemName) => { // <-- onProgress を削除
     if (!storage || !firebaseUid) {
         throw new Error("uploadFileToStorageOnly: Firebase StorageまたはUIDが不足しています。");
     }
 
     const timestamp = Date.now();
     const safeFileName = (file.name || 'upload.dat').replace(/[^a-zA-Z0-9._-]/g, '_');
-    // ★ 修正: 保存先を一時フォルダに変更 (YHDappのstorage.rulesに合わせて)
-    const filePath = `users/${firebaseUid}/temp_diagnosis_assets/${timestamp}_${itemName}_${safeFileName}`;
+    
+    // ▼▼▼ ★★★ エラー修正: 権限エラー(403)回避のため、パスを 'gallery' に変更 ★★★ ▼▼▼
+    // (Firestoreには書き込まないので、管理アプリのギャラリーには表示されない)
+    const filePath = `users/${firebaseUid}/gallery/${timestamp}_${itemName}_${safeFileName}`;
+    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+    
     const storageRef = ref(storage, filePath);
     
     console.log(`[api.js] Uploading (Storage Only, Resumable) ${itemName} to path: ${filePath}`);
@@ -111,35 +118,28 @@ export const uploadFileToStorageOnly = async (storage, firebaseUid, file, itemNa
     // uploadBytes ではなく uploadBytesResumable を使用
     const uploadTask = uploadBytesResumable(storageRef, file);
 
-    // Promiseでラップして、完了/エラーを待機
-    return new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', 
-            (snapshot) => {
-                // 進捗コールバック
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                console.log(`[api.js] ${itemName} Upload is ${progress}% done`);
-                if (onProgress) {
-                    onProgress(progress, itemName);
-                }
-            }, 
-            (error) => {
-                // エラーハンドリング
-                console.error(`[api.js] Storage Only Upload failed for ${itemName}:`, error);
-                reject(error);
-            }, 
-            async () => {
-                // 完了ハンドリング
-                try {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    console.log(`[api.js] Storage Only Upload successful for ${itemName}. URL: ${downloadURL}`);
-                    resolve({ itemName: itemName, url: downloadURL, path: filePath });
-                } catch (getUrlError) {
-                    console.error(`[api.js] Failed to get Download URL for ${itemName}:`, getUrlError);
-                    reject(getUrlError);
-                }
-            }
-        );
-    });
+    // ▼▼▼ ★★★ スマホでの停止バグ修正: .on() リスナーを削除し、Taskを直接 await する ★★★ ▼▼▼
+    try {
+        // 1. .on() リスナーはアタッチ *しない*
+        
+        // 2. タスク（Promise）自体が完了するのを待つ
+        const snapshot = await uploadTask;
+        console.log(`[api.js] UploadTask completed for ${itemName}.`);
+
+        // 3. 完了後、ダウンロードURLを取得する
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        console.log(`[api.js] Storage Only Upload successful for ${itemName}. URL: ${downloadURL}`);
+        
+        // 4. 成功した結果を返す
+        return { itemName: itemName, url: downloadURL, path: filePath };
+
+    } catch (error) {
+        // 途中でエラー（アップロード失敗、URL取得失敗など）が起きた場合
+        console.error(`[api.js] Storage Only Upload failed for ${itemName}:`, error);
+        // エラーを re-throw して、main.js の Promise.all に伝える
+        throw error;
+    }
+    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 };
 // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
@@ -170,8 +170,24 @@ export const saveImageToGallery = async (firestore, storage, firebaseUid, file, 
     const storageRef = ref(storage, filePath);
     
     console.log(`[api.js] Uploading ${itemName} to Storage path: ${filePath}`);
-    // ★★★ 注意: こちらは写真用なので、進捗なしの uploadBytes のまま（高速なため） ★★★
-    const snapshot = await uploadBytes(storageRef, file);
+
+    // ▼▼▼ ★★★ スマホ停止バグ修正: 写真も Resumable に変更 ★★★ ▼▼▼
+    let snapshot;
+    try {
+        // uploadBytes の代わりに uploadBytesResumable を使用
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        // (注: 写真は高速なので進捗コールバックは省略)
+        
+        // タスクの完了（Promise）を待つ
+        snapshot = await uploadTask; 
+        console.log(`[api.js] Resumable Upload successful for (photo) ${itemName}.`);
+    } catch (uploadError) {
+        console.error(`[api.js] saveImageToGallery - Storage Upload failed for ${itemName}:`, uploadError);
+        throw uploadError; // エラーを re-throw
+    }
+    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+    
     const downloadURL = await getDownloadURL(snapshot.ref);
     console.log(`[api.js] Storage Upload successful for ${itemName}. URL: ${downloadURL}`);
 
