@@ -5,12 +5,14 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // --- 作成したモジュールをインポート ---
+// ▼▼▼ ★★★ 修正: helpers.js と ui.js から新しい関数をインポート ★★★ ▼▼▼
 import {
     initializeAppFailure,
     hideLoadingScreen,
     setTextContent,
     base64ToBlob,
-    compressImage
+    compressImage,
+    recordVideo // ★ 新規
 } from './helpers.js';
 
 import {
@@ -19,8 +21,12 @@ import {
     displayProposalResult,
     checkAllFilesUploaded,
     checkProposalSelection,
-    updateCaptureLoadingText
+    updateCaptureLoadingText,
+    showVideoModal, // ★ 新規
+    hideVideoModal, // ★ 新規
+    updateRecordingUI // ★ 新規
 } from './ui.js';
+// ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
 import {
     initializeLiffAndAuth,
@@ -58,9 +64,6 @@ const AppState = {
     },
     gender: 'female',
     
-    // ▼▼▼ ★★★ awaitしない方式（ハングアップ回避） ★★★ ▼▼▼
-    // uploadedFiles: {}, // File オブジェクトは保持しない
-    
     /**
      * アップロードタスク（Promise）を保持する。
      * { 'item-front-photo': Promise<{url: string, ...}>, ... }
@@ -72,7 +75,6 @@ const AppState = {
      * { 'item-front-photo': 'https://...', ... }
      */
     uploadedFileUrls: {}, 
-    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
     selectedProposal: { hairstyle: null, haircolor: null },
     aiDiagnosisResult: null,
@@ -133,115 +135,81 @@ function setupEventListeners() {
         changePhase('phase3');
     });
 
-    // ▼▼▼ ★★★ 最終修正: `await` しない方式（ハングアップ回避） ★★★ ▼▼▼
-    // Phase 3: File Inputs (await しない方式)
+    // ▼▼▼ ★★★ 修正: Phase 3 のイベントリスナーを写真用と動画用に分離 ★★★ ▼▼▼
     document.querySelectorAll('.upload-item').forEach(item => {
         const button = item.querySelector('button');
-        const input = item.querySelector('.file-input');
+        const input = item.querySelector('.file-input'); // 写真用
         const itemId = item.id;
         const iconDiv = item.querySelector('.upload-icon');
+        
+        const isPhotoItem = itemId.includes('photo');
+        const isVideoItem = itemId.includes('video');
 
-        if (button && input) {
-            button.addEventListener('click', () => !button.disabled && input.click());
-            
-            // ★ `await` を使わないため、`async` を削除
-            input.addEventListener('change', (event) => {
+        if (button) {
+            if (isPhotoItem && input) {
+                // (A) 写真アイテムの場合: 従来通り input をキック
+                button.addEventListener('click', () => !button.disabled && input.click());
                 
-                // 既存のタスクが進行中ならキャンセル（ボタン連打対策）
-                // (注: AppState.uploadTasks[itemId] が Promise であれば、ですが、
-                //    ここではシンプルにUIをリセットするだけに留めます)
-                if (button.disabled) {
-                     console.warn(`[FileSelected] ${itemId} is already processing.`);
-                     return;
-                }
-
-                const file = event.target.files?.[0];
-                if (!file) {
-                    console.log(`[FileSelected] No file selected for ${itemId}.`);
-                    event.target.value = null;
-                    return;
-                }
-
-                // ▼▼▼ ★★★ 新規追加: ファイルタイプ検証 ★★★ ▼▼▼
-                const isVideoInput = itemId.includes('video');
-                const isPhotoInput = !isVideoInput;
-                const isVideoFile = file.type.startsWith('video/');
-                const isPhotoFile = file.type.startsWith('image/');
-
-                if (isVideoInput && !isVideoFile) {
-                    alert("動画（🎬）が選択されていません。\n「動画：正面」と「動画：バック」の項目では、写真ではなく動画ファイル（.mov または .mp4）を選択するか、カメラをビデオモードに切り替えて撮影してください。");
-                    // UIをリセット
-                    button.disabled = false;
-                    event.target.value = null; // inputをクリア
-                    return; // 処理を中断
-                }
-                
-                if (isPhotoInput && !isPhotoFile) {
-                    alert("写真（📷）が選択されていません。\n写真の項目では、動画ではなく写真ファイルを選択してください。");
-                    // UIをリセット
-                    button.disabled = false;
-                    event.target.value = null; // inputをクリア
-                    return; // 処理を中断
-                }
-                // ▲▲▲ ★★★ 検証ここまで ★★★ ▲▲▲
-
-
-                // (1) UIを「処理中...」に変更
-                button.textContent = '処理中...';
-                button.disabled = true;
-                if (iconDiv) iconDiv.classList.remove('completed'); // アイコンをリセット
-                
-                // AppStateをリセット
-                delete AppState.uploadTasks[itemId];
-                delete AppState.uploadedFileUrls[itemId];
-                checkAllFilesUploaded(false); // 診断ボタンを一時的に無効化
-
-                // (2) 圧縮処理 (Promiseベース)
-                let processingPromise;
-                if (isPhotoFile && file.type !== 'image/gif') { // 'file.type' を使う (isPhotoFile)
-                    console.log(`[FileSelected] ${itemId} (Image): ${file.name}. Compressing...`);
-                    processingPromise = compressImage(file).catch(compressError => {
-                        console.warn(`[FileSelected] ${itemId} compression failed. Using original file.`, compressError);
-                        return file; // 圧縮に失敗しても元のファイルで続行
-                    });
-                } else if (isVideoFile) { // 'file.type' を使う (isVideoFile)
-                    // ★★★ 動画サイズチェック ★★★
-                    const fileSizeMB = file.size / 1024 / 1024;
-                    if (fileSizeMB > 50) { // 50MBを超える場合
-                        alert(`動画ファイルのサイズが ${fileSizeMB.toFixed(1)}MB と非常に大きいです。\nアップロードに時間がかかるか、失敗する可能性があります。\n\n（可能であれば、より短い動画（3〜5秒程度）で再度お試しください）`);
-                    }
-                    processingPromise = Promise.resolve(file); // 動画は圧縮しない
-                } else {
-                    console.log(`[FileSelected] ${itemId} (Other): ${file.name}. Skipping compression.`);
-                    processingPromise = Promise.resolve(file);
-                }
-
-                // (3) 圧縮完了後、アップロードを "開始" (await しない)
-                // (onProgressコールバックを定義)
-                const onUploadProgress = (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    if (button) {
-                        button.textContent = `ｱｯﾌﾟﾛｰﾄﾞ中 ${Math.round(progress)}%`;
-                    }
-                };
-                
-                // (4) uploadTask (Promise) を AppState に保存
-                //    processingPromise (圧縮) が終わってから...
-                AppState.uploadTasks[itemId] = processingPromise.then(fileToUpload => {
+                // 写真用の 'change' イベントリスナー (従来のロジック)
+                input.addEventListener('change', (event) => {
                     
-                    button.textContent = 'ｱｯﾌﾟﾛｰﾄﾞ中 0%'; // UIを更新
+                    if (button.disabled) {
+                         console.warn(`[FileSelected] ${itemId} is already processing.`);
+                         return;
+                    }
 
-                    if (isVideoInput) {
-                        // (a) 動画の場合 (Storage Only)
-                        console.log(`[FileSelected] Starting upload (Storage Only): ${itemId}`);
-                        return uploadFileToStorageOnly(
-                            AppState.firebase.storage,
-                            AppState.userProfile.firebaseUid,
-                            fileToUpload,
-                            itemId,
-                            onUploadProgress // 進捗コールバックを渡す
-                        );
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                        console.log(`[FileSelected] No file selected for ${itemId}.`);
+                        event.target.value = null;
+                        return;
+                    }
+
+                    // 写真ファイル検証
+                    if (!file.type.startsWith('image/')) {
+                        // (注: main.js には写真/動画の誤選択チェックがあったが、
+                        //  写真専用 input になったので、 image/* 以外のチェックのみ行う)
+                        alert("写真（📷）が選択されていません。\nこの項目では写真ファイルを選択してください。");
+                        event.target.value = null; // inputをクリア
+                        return; // 処理を中断
+                    }
+
+                    // (1) UIを「処理中...」に変更
+                    button.textContent = '処理中...';
+                    button.disabled = true;
+                    if (iconDiv) iconDiv.classList.remove('completed'); // アイコンをリセット
+                    
+                    // AppStateをリセット
+                    delete AppState.uploadTasks[itemId];
+                    delete AppState.uploadedFileUrls[itemId];
+                    checkAllFilesUploaded(false);
+
+                    // (2) 圧縮処理 (Promiseベース)
+                    let processingPromise;
+                    if (file.type !== 'image/gif') {
+                        console.log(`[FileSelected] ${itemId} (Image): ${file.name}. Compressing...`);
+                        processingPromise = compressImage(file).catch(compressError => {
+                            console.warn(`[FileSelected] ${itemId} compression failed. Using original file.`, compressError);
+                            return file; // 圧縮に失敗しても元のファイルで続行
+                        });
                     } else {
+                        console.log(`[FileSelected] ${itemId} (Other): ${file.name}. Skipping compression.`);
+                        processingPromise = Promise.resolve(file);
+                    }
+
+                    // (3) onProgressコールバックを定義
+                    const onUploadProgress = (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        if (button) {
+                            button.textContent = `ｱｯﾌﾟﾛｰﾄﾞ中 ${Math.round(progress)}%`;
+                        }
+                    };
+                    
+                    // (4) uploadTask (Promise) を AppState に保存
+                    AppState.uploadTasks[itemId] = processingPromise.then(fileToUpload => {
+                        
+                        button.textContent = 'ｱｯﾌﾟﾛｰﾄﾞ中 0%'; // UIを更新
+
                         // (b) 写真の場合 (Save to Gallery)
                         console.log(`[FileSelected] Starting upload (Save to Gallery): ${itemId}`);
                         return saveImageToGallery(
@@ -252,52 +220,66 @@ function setupEventListeners() {
                             itemId,
                             onUploadProgress // 進捗コールバックを渡す
                         );
-                    }
 
-                }).then(result => {
-                    // (5) アップロード完了時 (Promise 成功)
-                    console.log(`[UploadSuccess] ${itemId} finished.`);
-                    button.textContent = '✔️ 撮影済み';
-                    button.classList.remove('btn-outline');
-                    button.classList.add('btn-success');
-                    if (iconDiv) iconDiv.classList.add('completed');
-                    
-                    AppState.uploadedFileUrls[itemId] = result.url; // URLを保存
-                    checkAllFilesUploaded(areAllFilesUploaded()); // 全て揃ったか再チェック
-                    
-                    return result; // Promiseチェーンのために結果を返す
+                    }).then(result => {
+                        // (5) アップロード完了時 (Promise 成功)
+                        console.log(`[UploadSuccess] ${itemId} finished.`);
+                        button.textContent = '✔️ 撮影済み';
+                        button.classList.remove('btn-outline');
+                        button.classList.add('btn-success');
+                        if (iconDiv) iconDiv.classList.add('completed');
+                        
+                        AppState.uploadedFileUrls[itemId] = result.url; // URLを保存
+                        checkAllFilesUploaded(areAllFilesUploaded()); // 全て揃ったか再チェック
+                        
+                        return result; // Promiseチェーンのために結果を返す
 
-                }).catch(error => {
-                    // (6) アップロード失敗時 (Promise 失敗)
-                    console.error(`[UploadFailed] Error processing file for ${itemId}:`, error);
-                    alert(`「${itemId}」のアップロードに失敗しました: ${error.message}`);
-                    
-                    // UIを元に戻す
-                    button.textContent = '撮影';
-                    button.disabled = false;
-                    button.classList.add('btn-outline');
-                    button.classList.remove('btn-success');
-                    if (iconDiv) iconDiv.classList.remove('completed');
+                    }).catch(error => {
+                        // (6) アップロード失敗時 (Promise 失敗)
+                        console.error(`[UploadFailed] Error processing file for ${itemId}:`, error);
+                        alert(`「${itemId}」のアップロードに失敗しました: ${error.message}`);
+                        
+                        // UIを元に戻す
+                        button.textContent = '撮影';
+                        button.disabled = false;
+                        button.classList.add('btn-outline');
+                        button.classList.remove('btn-success');
+                        if (iconDiv) iconDiv.classList.remove('completed');
 
-                    // AppStateをリセット
-                    delete AppState.uploadTasks[itemId];
-                    delete AppState.uploadedFileUrls[itemId];
-                    checkAllFilesUploaded(false);
+                        // AppStateをリセット
+                        delete AppState.uploadTasks[itemId];
+                        delete AppState.uploadedFileUrls[itemId];
+                        checkAllFilesUploaded(false);
+                        
+                        throw error; 
                     
-                    // エラーを re-throw して、上位の catch (Promise.all) に伝える
-                    throw error; 
-                
-                }).finally(() => {
-                    // (7) 成功・失敗問わず、input の値をクリア
-                    event.target.value = null;
+                    }).finally(() => {
+                        // (7) 成功・失敗問わず、input の値をクリア
+                        event.target.value = null;
+                    });
+                    
+                    console.log(`[FileSelected] ${itemId} processing task stored.`);
                 });
                 
-                // ★★★ ここで await しない ★★★
-                console.log(`[FileSelected] ${itemId} processing task stored.`);
-            });
+            } else if (isVideoItem) {
+                // (B) 動画アイテムの場合: 録画モーダルをキック
+                // (input.addEventListener('change', ...) は設定しない)
+                button.addEventListener('click', () => {
+                    if (button.disabled) return;
+                    
+                    // ★★★ 新規: モーダル表示ハンドラを呼ぶ ★★★
+                    handleVideoRecordClick(itemId);
+                });
+            }
         }
     });
+
+    // ★★★ 新規: 録画モーダルのボタンリスナー ★★★
+    document.getElementById('video-record-btn')?.addEventListener('click', handleStartRecording);
+    document.getElementById('video-cancel-btn')?.addEventListener('click', handleCancelRecording);
+    
     // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+
 
     // Phase 3: Diagnosis Button
     document.getElementById('request-diagnosis-btn')?.addEventListener('click', handleDiagnosisRequest);
@@ -380,7 +362,6 @@ async function handleDiagnosisRequest() {
         if (requestBtn) requestBtn.disabled = true;
         changePhase('phase3.5');
 
-        // ▼▼▼ ★★★ awaitしない方式（ハングアップ回避） ★★★ ▼▼▼
         // (1) 登録されたタスク（Promise）のリストを取得
         const requiredKeys = [
             'item-front-photo', 'item-side-photo', 'item-back-photo', 
@@ -397,14 +378,11 @@ async function handleDiagnosisRequest() {
         // (3) UIを更新し、Promise.all ですべてのタスク完了を待つ
         updateStatusText('全ファイルのアップロード完了を待機中...');
         
-        // ★★★★★ ここが重要 ★★★★★
         // (ここで初めて await する)
         await Promise.all(tasks);
-        // ★★★★★★★★★★★★★★★★★
-
+        
         console.log("[handleDiagnosisRequest] All 5 upload tasks (Promises) resolved.");
         // (この時点で AppState.uploadedFileUrls には 5つのURLが揃っているはず)
-        // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 
 
         // (4) fileUrls が5つ揃っているか最終チェック
@@ -500,7 +478,6 @@ async function handleImageGenerationRequest() {
         return;
     }
     
-    // ★★★ awaitしない方式（ハングアップ回避） ★★★
     // (この時点では AppState.uploadedFileUrls が使われる)
     const originalImageUrl = AppState.uploadedFileUrls['item-front-photo'];
     if (!originalImageUrl) {
@@ -887,14 +864,207 @@ function handleProposalSelection(event) {
     checkProposalSelection(isProposalSelected());
 }
 
+
+// ▼▼▼ ★★★ 新規: 動画録画ハンドラ ★★★ ▼▼▼
+
+/**
+ * [Handler] フェーズ3の動画「撮影」ボタンクリック時
+ * @param {string} itemId 
+ */
+function handleVideoRecordClick(itemId) {
+    console.log(`[handleVideoRecordClick] Clicked for ${itemId}`);
+    // 1. モーダルを表示
+    showVideoModal(itemId);
+    
+    // 2. カメラの準備
+    // ▼▼▼ ★★★ 修正: 常に false (アウトカメラ) を指定 ★★★ ▼▼▼
+    const useFront = false; // (itemId === 'item-front-video');
+    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+    const preview = document.getElementById('video-preview');
+    
+    if (!preview) {
+         alert("プレビュー要素が見つかりません。");
+         hideVideoModal();
+         return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("このブラウザはカメラ録画に対応していません。");
+        hideVideoModal();
+        return;
+    }
+
+    // 3. カメラストリームを取得してプレビューに表示
+    // (async IIFE で実行)
+    (async () => {
+        let stream = null;
+        try {
+            console.log(`[handleVideoRecordClick] Requesting camera (front: ${useFront})...`);
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    // ▼▼▼ ★★★ 修正: 常に 'environment' (アウトカメラ) を指定 ★★★ ▼▼▼
+                    facingMode: 'environment', // useFront ? 'user' : 'environment',
+                    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+                    width: { ideal: 640 },
+                },
+                audio: false
+            });
+            
+            preview.srcObject = stream;
+            // ▼▼▼ ★★★ 修正: 常に 'scaleX(1)' (鏡写し解除) ★★★ ▼▼▼
+            preview.style.transform = 'scaleX(1)'; // useFront ? 'scaleX(-1)' : 'scaleX(1)';
+            // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+            console.log("[handleVideoRecordClick] Camera stream attached to preview.");
+
+        } catch (err) {
+            console.error("[handleVideoRecordClick] Error accessing camera:", err);
+            let message = `カメラの起動に失敗しました: ${err.name}`;
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                message = "カメラへのアクセスが拒否されました。設定を確認してください。";
+            } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+                 // ▼▼▼ ★★★ 修正: エラーメッセージを 'アウトカメラ' に固定 ★★★ ▼▼▼
+                 message = `指定されたカメラ（アウトカメラ）が見つかりませんでした。`;
+                 // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+            }
+            alert(message);
+            // ストリームが開いている場合は閉じる (二重確認)
+            stream?.getTracks().forEach(track => track.stop());
+            hideVideoModal();
+        }
+    })();
+}
+
+/**
+ * [Handler] モーダルの「キャンセル」ボタンクリック時
+ */
+function handleCancelRecording() {
+    console.log("[handleCancelRecording] User cancelled recording.");
+    hideVideoModal();
+}
+
+/**
+ * [Handler] モーダルの「録画開始」ボタンクリック時
+ */
+async function handleStartRecording() {
+    const modal = document.getElementById('video-recorder-modal');
+    const itemId = modal?.dataset.currentItemId;
+    
+    if (!itemId) {
+        console.error("[handleStartRecording] No currentItemId found in modal dataset.");
+        hideVideoModal();
+        return;
+    }
+    
+    // ▼▼▼ ★★★ 修正: 常に false (アウトカメラ) を指定 ★★★ ▼▼▼
+    const useFront = false; // (itemId === 'item-front-video');
+    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+    
+    // フェーズ3のリストアイテムUIを取得
+    const itemElement = document.getElementById(itemId);
+    const button = itemElement?.querySelector('button');
+    const iconDiv = itemElement?.querySelector('.upload-icon');
+
+    // (1) カウントダウンコールバックを定義
+    const onCountdown = (count) => {
+        // 録画UIを更新
+        updateRecordingUI('recording', count);
+    };
+
+    try {
+        // (2) UIを「録画中」にし、録画ヘルパーを呼び出す
+        updateRecordingUI('recording', 3); // '3' から開始
+        
+        // ★★★ helpers.js の recordVideo を実行 (useFront = false を渡す) ★★★
+        const videoFile = await recordVideo(useFront, onCountdown);
+        
+        // (3) 録画完了 -> UIを「処理中」に変更
+        updateRecordingUI('processing');
+        
+        if (!button || !iconDiv) {
+             console.error(`[handleStartRecording] UI elements for ${itemId} not found after recording.`);
+             hideVideoModal();
+             return;
+        }
+
+        // フェーズ3のUIを「処理中」に変更
+        button.textContent = '処理中...';
+        button.disabled = true;
+        if (iconDiv) iconDiv.classList.remove('completed'); // アイコンをリセット
+        
+        // AppStateをリセット
+        delete AppState.uploadTasks[itemId];
+        delete AppState.uploadedFileUrls[itemId];
+        checkAllFilesUploaded(false);
+
+        // (4) onProgressコールバックを定義 (アップロード用)
+        const onUploadProgress = (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            if (button) {
+                button.textContent = `ｱｯﾌﾟﾛｰﾄﾞ中 ${Math.round(progress)}%`;
+            }
+        };
+        
+        // (5) uploadTask (Promise) を AppState に保存
+        AppState.uploadTasks[itemId] = uploadFileToStorageOnly(
+            AppState.firebase.storage,
+            AppState.userProfile.firebaseUid,
+            videoFile,
+            itemId,
+            onUploadProgress // 進捗コールバックを渡す
+        )
+        .then(result => {
+            // (6) アップロード完了時 (Promise 成功)
+            console.log(`[UploadSuccess] ${itemId} (video) finished.`);
+            button.textContent = '✔️ 撮影済み';
+            button.classList.remove('btn-outline');
+            button.classList.add('btn-success');
+            if (iconDiv) iconDiv.classList.add('completed');
+            
+            AppState.uploadedFileUrls[itemId] = result.url; // URLを保存
+            checkAllFilesUploaded(areAllFilesUploaded()); // 全て揃ったか再チェック
+            
+            return result; // Promiseチェーンのために結果を返す
+
+        }).catch(uploadError => {
+            // (7) アップロード失敗時 (Promise 失敗)
+            console.error(`[UploadFailed] Error processing video file for ${itemId}:`, uploadError);
+            alert(`「${itemId}」のアップロードに失敗しました: ${uploadError.message}`);
+            
+            // UIを元に戻す
+            button.textContent = '撮影';
+            button.disabled = false;
+            button.classList.add('btn-outline');
+            button.classList.remove('btn-success');
+            if (iconDiv) iconDiv.classList.remove('completed');
+
+            // AppStateをリセット
+            delete AppState.uploadTasks[itemId];
+            delete AppState.uploadedFileUrls[itemId];
+            checkAllFilesUploaded(false);
+            
+            throw uploadError; 
+        
+        }).finally(() => {
+            // (8) 成功・失敗問わず、モーダルを閉じる
+            hideVideoModal();
+        });
+
+    } catch (recordError) {
+        // (2) の録画ヘルパー (recordVideo) が失敗した場合
+        console.error(`[handleStartRecording] Error during recording:`, recordError);
+        alert(`録画中にエラーが発生しました: ${recordError.message}`);
+        hideVideoModal();
+        updateRecordingUI('idle'); // モーダルUIをリセット
+    }
+}
+// ▲▲▲ ★★★ 追加ここまで ★★★ ▲▲▲
+
+
 // --- State Checkers ---
 
 function areAllFilesUploaded() {
     const requiredItems = ['item-front-photo', 'item-side-photo', 'item-back-photo', 'item-front-video', 'item-back-video'];
-    // ▼▼▼ ★★★ awaitしない方式（ハングアップ回避） ★★★ ▼▼▼
     // (URLが揃っているかどうかで判断)
     return requiredItems.every(item => AppState.uploadedFileUrls[item]);
-    // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
 }
 
 function isProposalSelected() {

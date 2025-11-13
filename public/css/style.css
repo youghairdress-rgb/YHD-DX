@@ -669,3 +669,140 @@ button {
     margin-top: 15px;
     box-sizing: border-box; /* paddingがwidthに含まれるように */
 }
+
+
+/* ★★★ 新規追加: 動画撮影モーダル ★★★ */
+#video-recorder-modal {
+    display: none; /* JSで制御 */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* 半透明の黒背景 */
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#video-recorder-modal.active {
+    display: flex; /* Flexboxで中央揃え */
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+}
+
+.video-modal-content {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    position: relative; /* スピナーやタイマーの基準 */
+}
+
+.video-modal-content h3 {
+    font-size: 20px;
+    color: var(--dark-color);
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.video-modal-content p {
+    font-size: 15px;
+    color: var(--text-color-light);
+    margin-bottom: 20px;
+}
+
+#video-preview {
+    width: 100%;
+    height: auto;
+    max-height: 40vh; /* 高すぎないように */
+    border-radius: 12px;
+    background-color: #000;
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    /* インカメラ映像を鏡写しにする (インカメラ(user)の場合) */
+    transform: scaleX(-1);
+}
+
+#video-timer {
+    position: absolute;
+    top: 35px;
+    left: 35px;
+    background-color: rgba(217, 74, 74, 0.8);
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 8px;
+    display: none; /* JSで制御 */
+    z-index: 10;
+}
+
+/* 録画ボタン (btn-danger スタイル) */
+.btn-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* アイコンとテキストの間隔 */
+    width: 100%;
+    color: white;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: #ef4444; /* 赤色 */
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    transition: all 0.2s ease;
+    box-sizing: border-box; /* パディングを含める */
+}
+.btn-danger .icon {
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: border-radius 0.2s ease; /* 録画中の変形アニメーション */
+}
+/* 録画中 */
+.btn-danger.recording .icon {
+    border-radius: 4px; /* 四角に変更 */
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #dc2626; /* 濃い赤 */
+}
+
+/* キャンセルボタン (btn-secondary-white と同じスタイルを流用) */
+#video-cancel-btn {
+    display: block;
+    width: 100%;
+    margin: 15px auto 0 auto;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 13px 20px;
+    border: 1px solid var(--primary-color);
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: white;
+    transition: all 0.2s ease;
+    box-sizing: border-box; /* パディングを含める */
+}
+#video-cancel-btn:hover:not(:disabled) {
+    background-color: #f8fafc;
+}
