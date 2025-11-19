@@ -1,372 +1,161 @@
 import { escapeHtml, createResultItem, setTextContent } from './helpers.js';
 
-/**
- * 指定されたフェーズ（画面）に表示を切り替える
- * ★★★ アップグレード 提案③: フェードアニメーションに対応 ★★★
- * @param {string} phaseId 表示したいフェーズのID ('phase1', 'phase2', etc.)
- */
 export function changePhase(phaseId) {
-    console.log(`[changePhase] Changing to phase: ${phaseId}`);
-    
-    // 1. まず、現在表示されている（アクティブな）フェーズを探して、非表示（opacity: 0）にする
     const currentActivePhase = document.querySelector('.phase-container.active');
-    if (currentActivePhase) {
-        currentActivePhase.classList.remove('active');
-    }
+    if (currentActivePhase) currentActivePhase.classList.remove('active');
 
-    // 2. ターゲットのフェーズを探す
     const targetPhase = document.getElementById(phaseId);
-    
     if (targetPhase) {
-        // 3. ターゲットを表示（opacity: 1）にする
-        // display: block は CSS 側で .active クラスによって制御される
         targetPhase.classList.add('active');
-        console.log(`[changePhase] Phase ${phaseId} displayed.`);
-        
-        // 画面切り替え時に最上部までスクロール
         window.scrollTo(0, 0); 
     } else {
-        console.error(`[changePhase] Phase container with id "${phaseId}" not found.`);
-        // Fallback to phase1 if target is not found
-        const phase1 = document.getElementById('phase1');
-        if(phase1) phase1.classList.add('active');
+        document.getElementById('phase1')?.classList.add('active');
     }
 }
 
-
-/**
- * 診断結果（フェーズ4）をHTMLに描画する
- * @param {object} result - AIの診断結果オブジェクト
- */
 export function displayDiagnosisResult(result) {
-    // console.log("[displayDiagnosisResult] Displaying diagnosis:", result);
-    const faceResultsContainer = document.getElementById('face-results');
-    const skeletonResultsContainer = document.getElementById('skeleton-results');
-    const personalColorResultsContainer = document.getElementById('personal-color-results');
-    // ★★★ アップグレード ステップ1: 髪の状態コンテナを取得 ★★★
-    const hairConditionResultsContainer = document.getElementById('hair-condition-results');
+    const containers = {
+        face: document.getElementById('face-results'),
+        skeleton: document.getElementById('skeleton-results'),
+        personalColor: document.getElementById('personal-color-results'),
+        hairCondition: document.getElementById('hair-condition-results')
+    };
+    
+    Object.values(containers).forEach(c => { if(c) c.innerHTML = ''; });
 
+    if (!result) return;
 
-    if (faceResultsContainer) faceResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] faceResultsContainer not found");
-    if (skeletonResultsContainer) skeletonResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] skeletonResultsContainer not found");
-    if (personalColorResultsContainer) personalColorResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] personalColorResultsContainer not found");
-    // ★★★ アップグレード ステップ1: 髪の状態コンテナをクリア ★★★
-    if (hairConditionResultsContainer) hairConditionResultsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] hairConditionResultsContainer not found");
-
-
-    if (!result) {
-        console.warn("[displayDiagnosisResult] No result data to display.");
-        return;
-    }
-
-    if (result.face && faceResultsContainer) {
-        // console.log("[displayDiagnosisResult] Populating face results...");
-        const faceMap = { nose: "鼻", mouth: "口", eyes: "目", eyebrows: "眉", forehead: "おでこ" };
+    if (result.face && containers.face) {
+        const map = { nose: "鼻", mouth: "口", eyes: "目", eyebrows: "眉", forehead: "おでこ" };
         Object.entries(result.face).forEach(([key, value]) => {
-            const items = createResultItem(faceMap[key] || key, value);
-            faceResultsContainer.append(...items);
+            containers.face.append(...createResultItem(map[key] || key, value));
         });
     }
-
-    if (result.skeleton && skeletonResultsContainer) {
-        // console.log("[displayDiagnosisResult] Populating skeleton results...");
-        // ★★★ アップグレード ステップ1: 骨格・ボディの項目を強化版に対応 ★★★
-        const skeletonMap = { 
-            neckLength: "首の長さ", 
-            faceShape: "顔の形", 
-            bodyLine: "ボディライン", 
-            shoulderLine: "肩のライン",
-            // ★ 新規項目
-            faceStereoscopy: "顔の立体感", 
-            bodyTypeFeature: "体型の特徴" 
-        };
+    if (result.skeleton && containers.skeleton) {
+        const map = { neckLength: "首の長さ", faceShape: "顔の形", bodyLine: "ボディライン", shoulderLine: "肩のライン", faceStereoscopy: "顔の立体感", bodyTypeFeature: "体型の特徴" };
         Object.entries(result.skeleton).forEach(([key, value]) => {
-            // skeletonMap[key] が存在する場合のみ表示 (古い項目も新しい項目もカバー)
-            if (skeletonMap[key]) {
-                const items = createResultItem(skeletonMap[key], value);
-                skeletonResultsContainer.append(...items);
-            }
+            if (map[key]) containers.skeleton.append(...createResultItem(map[key], value));
         });
     }
-
-    if (result.personalColor && personalColorResultsContainer) {
-         // console.log("[displayDiagnosisResult] Populating personal color results...");
-         const colorMap = { baseColor: "ベースカラー", season: "シーズン", brightness: "明度", saturation: "彩度", eyeColor: "瞳の色" };
+    if (result.personalColor && containers.personalColor) {
+         const map = { baseColor: "ベースカラー", season: "シーズン", brightness: "明度", saturation: "彩度", eyeColor: "瞳の色" };
          Object.entries(result.personalColor).forEach(([key, value]) => {
-             const items = createResultItem(colorMap[key] || key, value);
-             personalColorResultsContainer.append(...items);
+             containers.personalColor.append(...createResultItem(map[key] || key, value));
          });
     }
-
-    // ★★★ アップグレード ステップ1: 「現在の髪の状態」を描画するロジック ★★★
-    if (result.hairCondition && hairConditionResultsContainer) {
-        // console.log("[displayDiagnosisResult] Populating hair condition results...");
-        const hairMap = {
-            quality: "髪質",
-            curlType: "クセ",
-            damageLevel: "ダメージ",
-            volume: "毛量"
-        };
+    if (result.hairCondition && containers.hairCondition) {
+        const map = { quality: "髪質", curlType: "クセ", damageLevel: "ダメージ", volume: "毛量" };
         Object.entries(result.hairCondition).forEach(([key, value]) => {
-            if (hairMap[key]) { // スキーマで定義されたキーのみ表示
-                const items = createResultItem(hairMap[key], value);
-                hairConditionResultsContainer.append(...items);
-            }
+            if (map[key]) containers.hairCondition.append(...createResultItem(map[key], value));
         });
     }
-
-     // console.log("[displayDiagnosisResult] Finished displaying results.");
 }
 
-/**
- * 提案結果（フェーズ5）をHTMLに描画する
- * @param {object} proposal - AIの提案結果オブジェクト
- * @param {function} onProposalClick - 提案カードがクリックされたときのコールバック関数
- */
 export function displayProposalResult(proposal, onProposalClick) {
-    // console.log("[displayProposalResult] Displaying proposal:", proposal);
-    const hairstyleContainer = document.getElementById('hairstyle-proposal');
-    const haircolorContainer = document.getElementById('haircolor-proposal');
-    const bestColorsContainer = document.getElementById('best-colors-proposal');
-    const makeupContainer = document.getElementById('makeup-proposal');
-    // ★★★ アップグレード 提案①: ファッション提案コンテナを取得 ★★★
-    const fashionContainer = document.getElementById('fashion-proposal');
-
-    if (hairstyleContainer) hairstyleContainer.innerHTML = ''; else console.warn("[displayProposalResult] hairstyleContainer not found");
-    if (haircolorContainer) haircolorContainer.innerHTML = ''; else console.warn("[displayProposalResult] haircolorContainer not found");
-    if (bestColorsContainer) bestColorsContainer.innerHTML = ''; else console.warn("[displayDiagnosisResult] bestColorsContainer not found");
-    if (makeupContainer) makeupContainer.innerHTML = ''; else console.warn("[displayProposalResult] makeupContainer not found");
-    // ★★★ アップグレード 提案①: ファッション提案コンテナをクリア ★★★
-    if (fashionContainer) fashionContainer.innerHTML = ''; else console.warn("[displayProposalResult] fashionContainer not found");
-    setTextContent('top-stylist-comment-text', '');
+    const containers = {
+        hairstyle: document.getElementById('hairstyle-proposal'),
+        haircolor: document.getElementById('haircolor-proposal'),
+        bestColors: document.getElementById('best-colors-proposal'),
+        makeup: document.getElementById('makeup-proposal'),
+        fashion: document.getElementById('fashion-proposal')
+    };
     
+    Object.values(containers).forEach(c => { if(c) c.innerHTML = ''; });
+    setTextContent('top-stylist-comment-text', '');
 
-    if (!proposal) {
-        console.warn("[displayProposalResult] No proposal data to display.");
-        return;
-    }
+    if (!proposal) return;
 
-    if (proposal.hairstyles && hairstyleContainer) {
-        // console.log("[displayProposalResult] Populating hairstyles...");
+    if (proposal.hairstyles && containers.hairstyle) {
         Object.entries(proposal.hairstyles).forEach(([key, style]) => {
             const card = document.createElement('div');
             card.className = 'proposal-card';
             card.dataset.type = 'hairstyle';
             card.dataset.key = key;
             card.innerHTML = `<strong>${escapeHtml(style.name)}</strong><p>${escapeHtml(style.description)}</p>`;
-            card.addEventListener('click', onProposalClick); // 渡されたハンドラを設定
-            hairstyleContainer.appendChild(card);
+            card.addEventListener('click', onProposalClick);
+            containers.hairstyle.appendChild(card);
         });
     }
-
-    if (proposal.haircolors && haircolorContainer) {
-        // console.log("[displayProposalResult] Populating haircolors...");
+    if (proposal.haircolors && containers.haircolor) {
         Object.entries(proposal.haircolors).forEach(([key, color]) => {
             const card = document.createElement('div');
             card.className = 'proposal-card';
             card.dataset.type = 'haircolor';
             card.dataset.key = key;
             card.innerHTML = `<strong>${escapeHtml(color.name)}</strong><p>${escapeHtml(color.description)}</p>`;
-            card.addEventListener('click', onProposalClick); // 渡されたハンドラを設定
-            haircolorContainer.appendChild(card);
+            card.addEventListener('click', onProposalClick);
+            containers.haircolor.appendChild(card);
         });
     }
-
-    if (proposal.bestColors && bestColorsContainer) {
-        // console.log("[displayProposalResult] Populating best colors...");
+    if (proposal.bestColors && containers.bestColors) {
         Object.values(proposal.bestColors).forEach(color => {
-            if (!color || !color.name || !color.hex) {
-                 console.warn("[displayProposalResult] Invalid bestColor item:", color);
-                 return;
-            }
+            if (!color.hex) return;
             const item = document.createElement('div');
             item.className = 'color-swatch-item';
-            const circle = document.createElement('div');
-            circle.className = 'color-swatch-circle';
-            circle.style.backgroundColor = color.hex.match(/^#[0-9a-fA-F]{6}$/) ? color.hex : '#ccc';
-            const name = document.createElement('span');
-            name.className = 'color-swatch-name';
-            name.textContent = escapeHtml(color.name);
-            item.appendChild(circle);
-            item.appendChild(name);
-            bestColorsContainer.appendChild(item);
+            item.innerHTML = `<div class="color-swatch-circle" style="background-color:${color.hex}"></div><span class="color-swatch-name">${escapeHtml(color.name)}</span>`;
+            containers.bestColors.appendChild(item);
         });
     }
-
-    if (proposal.makeup && makeupContainer) {
-        // console.log("[displayProposalResult] Populating makeup...");
-        const makeupMap = { eyeshadow: "アイシャドウ", cheek: "チーク", lip: "リップ" };
+    if (proposal.makeup && containers.makeup) {
+        const map = { eyeshadow: "アイシャドウ", cheek: "チーク", lip: "リップ" };
         Object.entries(proposal.makeup).forEach(([key, value]) => {
-            const items = createResultItem(makeupMap[key] || key, value); 
-            items[0].className = 'makeup-item-label'; 
-            items[1].className = 'makeup-item-value';
-            makeupContainer.append(...items);
+            const items = createResultItem(map[key] || key, value);
+            items[0].className = 'makeup-item-label'; items[1].className = 'makeup-item-value';
+            containers.makeup.append(...items);
         });
     }
-
-    // ★★★ アップグレード 提案①: ファッション提案を描画 ★★★
-    if (proposal.fashion && fashionContainer) {
-        // console.log("[displayProposalResult] Populating fashion...");
-        if (proposal.fashion.recommendedStyles && proposal.fashion.recommendedStyles.length > 0) {
-            const items = createResultItem("似合うスタイル", proposal.fashion.recommendedStyles.join(' / ')); 
-            items[0].className = 'makeup-item-label'; 
-            items[1].className = 'makeup-item-value';
-            fashionContainer.append(...items);
+    if (proposal.fashion && containers.fashion) {
+        if (proposal.fashion.recommendedStyles) {
+            const items = createResultItem("似合うスタイル", proposal.fashion.recommendedStyles.join(' / '));
+            items[0].className = 'makeup-item-label'; items[1].className = 'makeup-item-value';
+            containers.fashion.append(...items);
         }
-        if (proposal.fashion.recommendedItems && proposal.fashion.recommendedItems.length > 0) {
-            const items = createResultItem("似合うアイテム", proposal.fashion.recommendedItems.join(' / ')); 
-            items[0].className = 'makeup-item-label'; 
-            items[1].className = 'makeup-item-value';
-            fashionContainer.append(...items);
+        if (proposal.fashion.recommendedItems) {
+            const items = createResultItem("似合うアイテム", proposal.fashion.recommendedItems.join(' / '));
+            items[0].className = 'makeup-item-label'; items[1].className = 'makeup-item-value';
+            containers.fashion.append(...items);
         }
     }
-
-    if (proposal.comment) {
-         setTextContent('top-stylist-comment-text', proposal.comment);
-    }
-     // console.log("[displayProposalResult] Finished displaying proposals.");
+    if (proposal.comment) setTextContent('top-stylist-comment-text', proposal.comment);
 }
 
-/**
- * フェーズ3の「AI診断をリクエスト」ボタンの有効/無効を切り替える
- * @param {boolean} allUploaded 
- */
 export function checkAllFilesUploaded(allUploaded) {
-    const requestBtn = document.getElementById('request-diagnosis-btn');
-
-    if (requestBtn) {
-        requestBtn.disabled = !allUploaded;
-        requestBtn.classList.toggle('btn-disabled', !allUploaded);
-        // if (allUploaded) console.log("[checkAllFilesUploaded] All files ready, button enabled.");
+    const btn = document.getElementById('request-diagnosis-btn');
+    if (btn) {
+        btn.disabled = !allUploaded;
+        btn.classList.toggle('btn-disabled', !allUploaded);
     }
 }
 
-/**
- * フェーズ5の「合成画像を作成」ボタンの有効/無効を切り替える
- * @param {boolean} bothSelected 
- */
 export function checkProposalSelection(bothSelected) {
-    const generateBtn = document.getElementById('next-to-generate-btn');
-
-    if (generateBtn) {
-        generateBtn.disabled = !bothSelected;
-        generateBtn.classList.toggle('btn-disabled', !bothSelected);
-         // if (bothSelected) console.log("[checkProposalSelection] Both selected, button enabled.");
+    const btn = document.getElementById('next-to-generate-btn');
+    if (btn) {
+        btn.disabled = !bothSelected;
+        btn.classList.toggle('btn-disabled', !bothSelected);
     }
 }
 
-/**
- * 画像キャプチャ中のローディングテキストを更新する
- * @param {HTMLElement} element 
- * @param {string} text 
- */
 export function updateCaptureLoadingText(element, text) {
     if (element) element.textContent = text;
-    console.log(`[CaptureStatus] ${text}`);
 }
 
-
-// ▼▼▼ ★★★ 修正: 動画撮影モーダル制御 ★★★ ▼▼▼
-
-/**
- * 動画撮影モーダルを表示する
- * @param {string} itemId - 'item-front-video' または 'item-back-video'
- */
-export function showVideoModal(itemId) {
-    const modal = document.getElementById('video-recorder-modal');
-    const title = document.getElementById('video-modal-title');
-    const description = document.getElementById('video-modal-description');
+export function displayGeneratedImage(base64Data, mimeType) {
+    const generatedImage = document.getElementById('generated-image');
+    const generatedImageContainer = document.querySelector('.generated-image-container');
+    const saveButton = document.getElementById('save-generated-image-to-db-btn');
     
-    if (!modal || !title || !description) {
-         console.error("[showVideoModal] Modal elements not found.");
-         return;
-    }
-
-    if (itemId === 'item-front-video') {
-        title.textContent = '動画撮影 (正面)';
-        // ▼▼▼ ★★★ 修正: 'インカメラで' -> 'アウトカメラで' ★★★ ▼▼▼
-        description.textContent = '顔を左右にゆっくり動かしてください。';
-        // ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
-    } else {
-        title.textContent = '動画撮影 (バック)';
-        description.textContent = '髪全体（後ろ姿）を撮影してください。';
-    }
-
-    // ★★★ 修正: モーダルに録画対象のIDを保存 ★★★
-    modal.dataset.currentItemId = itemId;
-
-    // UIを初期状態に戻す
-    updateRecordingUI('idle'); // 'idle' (待機) 状態に
-
-    modal.classList.add('active');
-}
-
-/**
- * 動画撮影モーダルを非表示にする
- */
-export function hideVideoModal() {
-    const modal = document.getElementById('video-recorder-modal');
-    const preview = document.getElementById('video-preview');
-
-    // プレビューのストリームを停止 (重要)
-    if (preview && preview.srcObject) {
-        const stream = preview.srcObject;
-        // nullチェックを追加
-        if (stream.getTracks) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-        preview.srcObject = null;
-        console.log("[hideVideoModal] Camera stream stopped.");
-    }
-
-    if (modal) {
-        modal.classList.remove('active');
-        // ★★★ 修正: 記憶したIDをクリア ★★★
-        delete modal.dataset.currentItemId;
-    }
-    
-    // ★★★ 修正: 閉じる時は必ずUIを 'idle' にリセット ★★★
-    updateRecordingUI('idle');
-}
-
-/**
- * 録画モーダルのUI状態を更新する
- * @param {'idle' | 'recording' | 'processing'} state
- * @param {number} [countdown] - カウントダウンの残り秒数 (recording時のみ)
- */
-export function updateRecordingUI(state, countdown) {
-    const recordBtn = document.getElementById('video-record-btn');
-    const recordBtnText = document.getElementById('video-record-btn-text');
-    const cancelBtn = document.getElementById('video-cancel-btn');
-    const timerDisplay = document.getElementById('video-timer');
-
-    if (!recordBtn || !cancelBtn || !timerDisplay || !recordBtnText) return;
-
-    if (state === 'idle') {
-        recordBtn.disabled = false;
-        cancelBtn.disabled = false;
-        recordBtnText.textContent = '録画開始 (3秒)';
-        recordBtn.classList.remove('recording');
-        recordBtn.classList.remove('btn-disabled'); // 無効化解除
-        timerDisplay.style.display = 'none';
-    } 
-    else if (state === 'recording') {
-        recordBtn.disabled = true; // 録画中は押せない
-        cancelBtn.disabled = true; // 録画中はキャンセル不可
-        recordBtnText.textContent = '録画中...';
-        recordBtn.classList.add('recording');
-        recordBtn.classList.add('btn-disabled'); // 無効化
+    if (generatedImage) {
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
+        generatedImage.src = dataUrl;
+        generatedImage.style.opacity = '1';
         
-        timerDisplay.textContent = String(countdown);
-        timerDisplay.style.display = 'block';
-    } 
-    else if (state === 'processing') {
-        recordBtn.disabled = true;
-        cancelBtn.disabled = true; // 処理中もキャンセル不可
-        recordBtnText.textContent = '処理中...';
-        recordBtn.classList.remove('recording');
-        recordBtn.classList.add('btn-disabled'); // 無効化
-        timerDisplay.style.display = 'none';
+        if (generatedImageContainer) {
+            generatedImageContainer.style.display = 'block';
+        }
+    }
+    
+    if (saveButton) {
+        saveButton.disabled = false;
     }
 }
-// ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲
+// ★ showVideoModal, hideVideoModal, updateRecordingUI は削除

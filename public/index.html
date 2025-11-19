@@ -12,17 +12,14 @@
     
     <link rel="stylesheet" href="css/style.css">
     
-    <!-- LIFF SDK (これは必要) -->
+    <!-- LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
     
-    <!-- html2canvas (これは必要) -->
+    <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tYHuRgEXEBOBS6qqSL9KxXfGPRCRHpTAfUuiQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <!-- Global Helper Functions -->
     <script>
-        // Define fallback functions in global scope EARLY
-        
-        // ★ 修正: escapeHtmlFallback をグローバルスコープで定義
         const escapeHtmlFallback = function(unsafe) {
             if (typeof unsafe !== 'string') return '';
             return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").replace(/\//g, "&#x2F;");
@@ -32,12 +29,10 @@
             console.error("[initializeAppFailureFallback] Triggered with:", errorMessage);
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) loadingScreen.style.display = 'none';
-            const bodyElement = document.body || document.createElement('body'); // Ensure body exists
-            // Escape the error message before inserting into HTML
-            const safeErrorMessage = escapeHtmlFallback(errorMessage || "不明なエラー"); // ★ 修正: エラーメッセージがnullでも動作するように
-            bodyElement.innerHTML = `<div style="padding: 20px; text-align: center; color: red; background-color: #fff0f0; border: 1px solid red; border-radius: 8px; max-width: 600px; margin: 20px auto;"><h2>アプリケーションエラー</h2><p>${safeErrorMessage}</p><p>時間をおいて再度お試しください。(LIFF SDKの読み込みエラーの場合、LINE Developers Consoleの設定を確認してください)</p></div>`;
+            const bodyElement = document.body || document.createElement('body');
+            const safeErrorMessage = escapeHtmlFallback(errorMessage || "不明なエラー");
+            bodyElement.innerHTML = `<div style="padding: 20px; text-align: center; color: red; background-color: #fff0f0; border: 1px solid red; border-radius: 8px; max-width: 600px; margin: 20px auto;"><h2>アプリケーションエラー</h2><p>${safeErrorMessage}</p><p>時間をおいて再度お試しください。</p></div>`;
             if (!document.body) document.documentElement.appendChild(bodyElement);
-            // ★ 修正: body のスタイルを再適用
             bodyElement.style.cssText = `display: flex; justify-content: center; align-items: flex-start; padding-top: 50px; min-height: 100vh; background-color: #f8fafc;`;
         }
     </script>
@@ -79,6 +74,27 @@
                     <input type="radio" id="other" name="gender" value="other"> <label for="other">その他</label>
                 </div>
             </div>
+            
+            <div class="form-group">
+                <label for="user-requests">ご希望のメニューやご要望 (任意)</label>
+                <textarea id="user-requests" class="form-control" rows="4" placeholder="（例）カットとカラー希望。赤みが出ないようにしたい。"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="inspiration-image-input">ご希望のスタイル写真 (任意)</label>
+                <input type="file" id="inspiration-image-input" class="file-input" accept="image/*" hidden>
+                
+                <div id="inspiration-upload-container" class="inspiration-upload-container" role="button" tabindex="0">
+                    <img id="inspiration-image-preview" alt="プレビュー">
+                    <div class="inspiration-upload-text">
+                        <strong id="inspiration-upload-title">写真を選択</strong>
+                        <span id="inspiration-upload-status">タップして画像を選択</span>
+                    </div>
+                    <button id="inspiration-upload-btn" class="btn-outline">選択</button>
+                    <button id="inspiration-delete-btn" class="btn-delete">削除</button>
+                </div>
+            </div>
+
             <button id="next-to-upload-btn" class="btn-dark">撮影に進む</button>
         </div>
     </div>
@@ -90,40 +106,37 @@
              <p class="description" style="margin-bottom: 20px;">AI診断のため、指定されたアングルから撮影してください。</p>
              <div class="upload-list">
                  <div id="item-front-photo" class="upload-item">
-                     <!-- 写真: これは変更なし (inputあり) -->
-                     <input type="file" class="file-input" accept="image/*" capture="user" hidden>
+                     <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
                      <div class="upload-icon">📷</div><div class="upload-text"><strong>写真：正面</strong><span>顔がはっきりと</span></div><button class="btn-outline">撮影</button>
                  </div>
                  <div id="item-side-photo" class="upload-item">
-                     <!-- 写真: これは変更なし (inputあり) -->
                      <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
                      <div class="upload-icon">📷</div><div class="upload-text"><strong>写真：サイド</strong><span>横顔と髪の長さ</span></div><button class="btn-outline">撮影</button>
                  </div>
                  <div id="item-back-photo" class="upload-item">
-                     <!-- 写真: これは変更なし (inputあり) -->
                      <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
                      <div class="upload-icon">📷</div><div class="upload-text"><strong>写真：バック</strong><span>後ろ全体の髪型</span></div><button class="btn-outline">撮影</button>
                  </div>
+                 <!-- ★★★ 修正: 動画用 input を復活 ★★★ -->
                  <div id="item-front-video" class="upload-item">
-                     <!-- ▼▼▼ ★★★ 修正: inputを削除し、説明文を変更 ★★★ ▼▼▼ -->
-                     <!-- <input type="file" class="file-input" ... hidden> (削除) -->
+                     <input type="file" class="file-input" accept="video/*" capture="environment" hidden>
                      <div class="upload-icon">🎬</div>
                      <div class="upload-text">
                          <strong>動画：正面 (3秒)</strong>
+                         <span>顔を左右に動かす</span>
                      </div>
                      <button class="btn-outline">撮影</button>
-                     <!-- ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲ -->
                  </div>
                  <div id="item-back-video" class="upload-item">
-                     <!-- ▼▼▼ ★★★ 修正: inputを削除し、説明文を変更 ★★★ ▼▼▼ -->
-                     <!-- <input type="file" class="file-input" ... hidden> (削除) -->
+                     <input type="file" class="file-input" accept="video/*" capture="environment" hidden>
                      <div class="upload-icon">🎬</div>
                      <div class="upload-text">
                          <strong>動画：バック (3秒)</strong>
+                         <span>髪全体の動き</span>
                      </div>
                      <button class="btn-outline">撮影</button>
-                     <!-- ▲▲▲ ★★★ 修正ここまで ★★★ ▲▲▲ -->
                  </div>
+                 <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
              </div>
              <button id="request-diagnosis-btn" class="btn-dark btn-disabled" disabled>AI診断をリクエスト</button>
          </div>
@@ -145,19 +158,19 @@
              
              <div class="result-section">
                  <h3 class="result-title"><img src="images/顔診断.png" alt="" class="result-icon"> お顔の特徴</h3>
-                 <div id="face-results" class="result-grid"></div> <!-- ID: face-results -->
+                 <div id="face-results" class="result-grid"></div>
              </div>
              <div class="result-section">
                  <h3 class="result-title"><img src="images/骨格診断.png" alt="" class="result-icon"> 骨格・ボディ</h3>
-                 <div id="skeleton-results" class="result-grid"></div> <!-- ID: skeleton-results -->
+                 <div id="skeleton-results" class="result-grid"></div>
              </div>
              <div class="result-section">
                  <h3 class="result-title"><img src="images/ヘアスタイル.png" alt="" class="result-icon"> 現在の髪の状態</h3>
-                 <div id="hair-condition-results" class="result-grid"></div> <!-- ID: hair-condition-results -->
+                 <div id="hair-condition-results" class="result-grid"></div>
              </div>
              <div class="result-section">
                  <h3 class="result-title"><img src="images/パーソナルカラー.png" alt="" class="result-icon"> パーソナルカラー</h3>
-                 <div id="personal-color-results" class="result-grid"></div> <!-- ID: personal-color-results -->
+                 <div id="personal-color-results" class="result-grid"></div>
              </div>
              
              <button id="next-to-proposal-btn" class="btn-dark">AI提案を見る</button>
@@ -172,38 +185,36 @@
              
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> 似合うヘアスタイル</h3>
-                 <div id="hairstyle-proposal" class="proposal-grid"></div> <!-- ID: hairstyle-proposal -->
+                 <div id="hairstyle-proposal" class="proposal-grid"></div>
+                 
+                 <!-- JSでここに「ご希望スタイル」カードが追加される -->
              </div>
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 似合うヘアカラー</h3>
-                 <div id="haircolor-proposal" class="proposal-grid"></div> <!-- ID: haircolor-proposal -->
+                 <div id="haircolor-proposal" class="proposal-grid"></div>
+
+                 <!-- JSでここに「ご希望カラー」カードが追加される -->
              </div>
 
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/カラーパターン.png" alt="" class="proposal-icon"> 相性ベストカラー</h3>
-                 <div id="best-colors-proposal" class="best-colors-grid">
-                     <!-- JSでここに色見本が挿入される -->
-                 </div>
+                 <div id="best-colors-proposal" class="best-colors-grid"></div>
              </div>
 
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/メイク.png" alt="" class="proposal-icon"> 似合うメイク</h3>
-                 <div id="makeup-proposal" class="makeup-grid">
-                     <!-- JSでここにメイク情報が挿入される -->
-                 </div>
+                 <div id="makeup-proposal" class="makeup-grid"></div>
              </div>
              
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/骨格診断.png" alt="" class="proposal-icon"> 似合うファッション</h3>
-                 <div id="fashion-proposal" class="makeup-grid"> <!-- メイクと同じスタイルを流用 -->
-                     <!-- JSでここにファッション情報が挿入される -->
-                 </div>
+                 <div id="fashion-proposal" class="makeup-grid"></div>
              </div>
 
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> AIからのアドバイス</h3>
                  <div class="top-stylist-comment">
-                     <p id="top-stylist-comment-text"></p> <!-- ID: top-stylist-comment-text -->
+                     <p id="top-stylist-comment-text"></p>
                  </div>
              </div>
              
@@ -218,16 +229,13 @@
          <div class="card">
              <h2 class="form-title">ヘアスタイル合成結果</h2>
              
-             <!-- スピナーを画像と重ねるためのコンテナ -->
              <div class="generated-image-container">
                  <img id="generated-image" src="https://placehold.co/300x300/e2e8f0/cbd5e1?text=Awaiting..." alt="合成されたヘアスタイル">
-                 <!-- 微調整ローディング用スピナー -->
                  <div id="refinement-spinner" class="spinner" style="display: none;"></div>
              </div>
              
              <p class="description">AIが生成した合成画像です。</p>
 
-             <!-- 微調整UI -->
              <div class="refinement-section">
                  <h3 class="refinement-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> 画像の微調整</h3>
                 <p class="description" style="margin-bottom: 15px; font-size: 14px; text-align: left;">「もう少し明るく」「前髪を短く」など、要望を伝えて画像を調整できます。</p>
@@ -237,54 +245,21 @@
                 <button id="refine-image-btn" class="btn-dark">変更を反映する</button>
              </div>
              
-             <!-- 1. お気に入り保存ボタン (DB保存) -->
              <button id="save-generated-image-to-db-btn" class="btn-primary no-print">この合成画像を保存する</button>
-             <!-- 2. 画面共有ボタン (html2canvas) -->
              <button id="share-phase6-btn" class="btn-secondary no-print">結果を保存してLINEで共有</button>
              
-             <!-- カラー切替ボタン -->
-             <button id="switch-color-btn" class="btn-outline no-print" style="display: none;">
-                <!-- JSでテキストが設定される (例: 「カラー2を試す」) -->
-             </button>
+             <button id="switch-color-btn" class="btn-outline no-print" style="display: none;"></button>
              
              <button id="back-to-proposal-btn" class="btn-outline">提案に戻る</button>
 
-             <!-- 終了ボタン -->
              <button id="close-liff-btn" class="btn-secondary btn-secondary-white no-print">
                  アプリを終了する
              </button>
          </div>
     </div>
 
-    <!-- ★★★ 新規追加: 動画撮影モーダルHTML ★★★ -->
-    <div id="video-recorder-modal">
-        <div class="video-modal-content">
-            <h3 id="video-modal-title">動画撮影（正面）</h3>
-            <p id="video-modal-description">インカメラで3秒間、顔を左右にゆっくり動かしてください。</p>
-            
-            <!-- カメラプレビュー -->
-            <video id="video-preview" autoplay playsinline muted></video>
-            
-            <!-- 録画タイマー -->
-            <div id="video-timer">3</div>
+    <!-- ★★★ モーダル関連HTMLを削除しました ★★★ -->
 
-            <!-- 録画ボタン -->
-            <button id="video-record-btn" class="btn-danger">
-                <div class="icon"></div>
-                <span id="video-record-btn-text">録画開始 (3秒)</span>
-            </button>
-
-            <!-- キャンセルボタン -->
-            <button id="video-cancel-btn">キャンセル</button>
-        </div>
-    </div>
-    <!-- ▲▲▲ ★★★ 追加ここまで ★★★ ▲▲▲ -->
-
-
-    <!-- 
-      ★ 修正: main.js のみ type="module" で読み込む
-    -->
     <script src="js/main.js" type="module"></script> 
-
 </body>
 </html>

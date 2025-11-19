@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "yhd-ai"
-  }
+    "default": "yhd-ai",
+    "dev": "yhd-dx"
+  },
+  "targets": {},
+  "etags": {}
 }
