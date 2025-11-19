@@ -136,7 +136,7 @@ async function handleInspirationSelect(event) {
         // UI更新: 完了
         if (preview) {
             preview.src = res.url;
-            preview.style.display = 'block'; // プレビュー表示
+            // preview.style.display = 'block'; // 必要に応じて
         }
         if (title) title.textContent = '写真を選択済み';
         if (status) status.textContent = 'タップして変更';
@@ -172,12 +172,6 @@ function handleInspirationDelete() {
     if (preview) {
         preview.src = '';
         preview.removeAttribute('src'); // アイコン表示に戻すため属性ごと消す
-        // CSSで src属性がない場合にアイコンを出すようになっている前提、または style.display制御
-        // style.css の記述を見ると `display: block` は `src` ありの場合のみなので、
-        // ここでは念のため style.display = 'none' にする（アイコンはCSSで背景等で表示されている場合）
-        // もしくは img タグ自体を隠してアイコン用divを出す構成かもしれないが、
-        // 現在のCSSでは `#inspiration-image-preview` 自体がアイコンコンテナも兼ねているように見えるため、
-        // srcを外せばOK
     }
     if (title) title.textContent = '写真を選択';
     if (status) status.textContent = 'タップして画像を選択';
@@ -257,11 +251,16 @@ async function handleDiagnosisRequest() {
     try {
         changePhase('phase3.5');
         await Promise.all(Object.values(appState.uploadTasks));
-        const res = await requestAiDiagnosis({
+        
+        // ★ 変更: userRequestsText を requestAiDiagnosis に渡す
+        const diagnosisData = {
             fileUrls: appState.uploadedFileUrls,
             userProfile: appState.userProfile,
-            gender: appState.gender
-        });
+            gender: appState.gender,
+            userRequestsText: document.getElementById('user-requests')?.value || "",
+        };
+
+        const res = await requestAiDiagnosis(diagnosisData);
         appState.aiDiagnosisResult = res.result;
         appState.aiProposal = res.proposal;
         displayDiagnosisResult(res.result);
@@ -275,7 +274,9 @@ async function handleDiagnosisRequest() {
 async function handleImageGenerationRequest() {
     try {
         changePhase('phase6');
-        const res = await requestImageGeneration({
+
+        // ★ 変更: userRequestsText と inspirationImageUrl を requestImageGeneration に渡す
+        const generationData = {
             originalImageUrl: appState.uploadedFileUrls['item-front-photo'],
             firebaseUid: appState.userProfile.firebaseUid,
             hairstyleName: appState.aiProposal.hairstyles[appState.selectedProposal.hairstyle].name,
@@ -284,11 +285,13 @@ async function handleImageGenerationRequest() {
             haircolorDesc: appState.aiProposal.haircolors[appState.selectedProposal.haircolor].description,
             recommendedLevel: appState.aiProposal.haircolors[appState.selectedProposal.haircolor].recommendedLevel,
             currentLevel: appState.aiDiagnosisResult.hairCondition.currentLevel,
-            // ★ 追加: ご希望写真URLと要望テキスト
-            userRequestsText: document.getElementById('user-requests')?.value || "",
-            inspirationImageUrl: appState.inspirationImageUrl
-        });
+            userRequestsText: document.getElementById('user-requests')?.value || "", // ★ Phase2の要望テキスト
+            inspirationImageUrl: appState.uploadedFileUrls['item-inspiration-photo'] || null, // ★ Phase2のご希望写真URL
+        };
+
+        const res = await requestImageGeneration(generationData);
         
+        // ★ 修正: レスポンス形式に合わせて修正
         const dataUrl = `data:${res.mimeType};base64,${res.imageBase64}`;
         appState.generatedImageDataBase64 = res.imageBase64;
         appState.generatedImageMimeType = res.mimeType;
@@ -311,27 +314,37 @@ function handleProposalSelection(e) {
     appState.selectedProposal[type] = key;
     checkProposalSelection(appState.selectedProposal.hairstyle && appState.selectedProposal.haircolor);
 }
+
 async function handleImageRefinementRequest() { 
     const input = document.getElementById('refinement-prompt-input');
     if(!input || !input.value) return;
+    
+    // ★ 変更: appState.generatedImageUrl ではなく、Base64データを参照する
+    if (!appState.generatedImageDataBase64) {
+        alert("微調整の元になる画像がありません。");
+        return;
+    }
     
     try {
         const generatedImageElement = document.getElementById('generated-image');
         if (generatedImageElement) generatedImageElement.style.opacity = '0.5';
         
+        // ★ 変更: generatedImageUrl を DataURL 形式で渡す
+        const dataUrl = `data:${appState.generatedImageMimeType};base64,${appState.generatedImageDataBase64}`;
+
         const requestData = {
-            generatedImageUrl: appState.generatedImageUrl,
+            generatedImageUrl: dataUrl, // ★ 変更
             firebaseUid: appState.userProfile.firebaseUid,
             refinementText: input.value
         };
         const response = await requestRefinement(requestData);
         
-        const dataUrl = `data:${response.mimeType};base64,${response.imageBase64}`;
+        const dataUrlNew = `data:${response.mimeType};base64,${response.imageBase64}`;
         appState.generatedImageDataBase64 = response.imageBase64;
         appState.generatedImageMimeType = response.mimeType;
-        appState.generatedImageUrl = dataUrl;
+        // appState.generatedImageUrl = dataUrlNew; // (generatedImageUrl は使わなくなったのでコメントアウト)
         
-        if (generatedImageElement) generatedImageElement.src = dataUrl;
+        if (generatedImageElement) generatedImageElement.src = dataUrlNew; // ★ 変更
         input.value = '';
         
     } catch (error) {
@@ -341,6 +354,7 @@ async function handleImageRefinementRequest() {
         if (generatedImageElement) generatedImageElement.style.opacity = '1';
     }
 }
+
 async function handleSaveGeneratedImage() {
     if (!appState.generatedImageDataBase64) return;
     try {

@@ -49,7 +49,7 @@
     <div id="phase1" class="phase-container">
         <div class="card">
             <img src="images/YHDlogo2.gif" alt="YHD AI Diagnosis Logo" class="logo">
-            <h1 class="main-title"><font size="34px";font color="#2dd4bf">YHD × AI</font><br>『似合わせ』診断</h1>
+            <h1 class="main-title"><font size="34px" color="#2dd4bf">YHD × AI</font><br>『似合わせ』診断</h1>
             <p class="description">
                 お客様の『似合う』を実現するために<br>
                 AIが分析し、最適なアドバイスを<br>伝えます！
@@ -75,6 +75,7 @@
                 </div>
             </div>
             
+            <!-- ★★★ ロードマップ 2-1 (カウンセリング機能) 対応 ★★★ -->
             <div class="form-group">
                 <label for="user-requests">ご希望のメニューやご要望 (任意)</label>
                 <textarea id="user-requests" class="form-control" rows="4" placeholder="（例）カットとカラー希望。赤みが出ないようにしたい。"></textarea>
@@ -85,15 +86,20 @@
                 <input type="file" id="inspiration-image-input" class="file-input" accept="image/*" hidden>
                 
                 <div id="inspiration-upload-container" class="inspiration-upload-container" role="button" tabindex="0">
+                    <!-- ★ 修正: アイコンフォントからインライン画像に変更 -->
                     <img id="inspiration-image-preview" alt="プレビュー">
+                    <div class="inspiration-upload-icon-placeholder"></div> <!-- CSSでアイコン表示用 (後で実装) -->
+                    
                     <div class="inspiration-upload-text">
                         <strong id="inspiration-upload-title">写真を選択</strong>
                         <span id="inspiration-upload-status">タップして画像を選択</span>
                     </div>
                     <button id="inspiration-upload-btn" class="btn-outline">選択</button>
-                    <button id="inspiration-delete-btn" class="btn-delete">削除</button>
+                    <!-- ★ 修正: 削除ボタンを追加 -->
+                    <button id="inspiration-delete-btn" class="btn-delete" style="display: none;">削除</button>
                 </div>
             </div>
+            <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
 
             <button id="next-to-upload-btn" class="btn-dark">撮影に進む</button>
         </div>
@@ -206,10 +212,12 @@
                  <div id="makeup-proposal" class="makeup-grid"></div>
              </div>
              
+             <!-- ★★★ 新規追加 (ロードマップ 2-1 ファッション提案) ★★★ -->
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/骨格診断.png" alt="" class="proposal-icon"> 似合うファッション</h3>
                  <div id="fashion-proposal" class="makeup-grid"></div>
              </div>
+             <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
 
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> AIからのアドバイス</h3>
@@ -236,6 +244,7 @@
              
              <p class="description">AIが生成した合成画像です。</p>
 
+             <!-- ★★★ 修正: 微調整セクション ★★★ -->
              <div class="refinement-section">
                  <h3 class="refinement-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> 画像の微調整</h3>
                 <p class="description" style="margin-bottom: 15px; font-size: 14px; text-align: left;">「もう少し明るく」「前髪を短く」など、要望を伝えて画像を調整できます。</p>
@@ -245,7 +254,7 @@
                 <button id="refine-image-btn" class="btn-dark">変更を反映する</button>
              </div>
              
-             <button id="save-generated-image-to-db-btn" class="btn-primary no-print">この合成画像を保存する</button>
+             <button id="save-generated-image-to-db-btn" class="btn-primary no-print" disabled>この合成画像を保存する</button>
              <button id="share-phase6-btn" class="btn-secondary no-print">結果を保存してLINEで共有</button>
              
              <button id="switch-color-btn" class="btn-outline no-print" style="display: none;"></button>

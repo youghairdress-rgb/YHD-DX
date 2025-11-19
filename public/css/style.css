@@ -17,93 +17,85 @@
 
 /* 全体のフォントとベーススタイル */
 body {
-    font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; /* モダンなフォントを追加 */
+    font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
     margin: 0;
     padding: 20px;
     background-color: var(--bg-color);
     color: var(--text-color);
-    /* ★★★ 提案③: ローディング時の中央寄せを修正 (削除) ★★★ */
     min-height: 100vh;
     box-sizing: border-box;
-    font-size: 16px; /* ベースフォントサイズ */
-    line-height: 1.7; /* 行間を少し広げる */
+    font-size: 16px;
+    line-height: 1.7;
 }
 
-/* ★★★ 提案③: ローディング画面の中央寄せ (bodyから移動) ★★★ */
+/* ローディング画面の中央寄せ */
 .loading-container {
     text-align: center;
     color: var(--dark-color);
-    /* 画面全体の中央に配置 */
-    display: flex; /* ★ 修正: デフォルトをflexに */
+    display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 80vh; /* 画面の高さの80%を使って中央寄せ */
+    min-height: 80vh;
 }
 
 /* --- フェーズ管理 --- */
-/* ★★★ 提案③: フェードアニメーションのためのスタイル ★★★ */
 .phase-container {
-    display: none; /* JSが .active を付けるまで非表示 */
+    display: none;
     width: 100%;
     max-width: 450px;
-    margin: 0 auto; /* 左右中央寄せ */
-    
-    /* アニメーション設定 */
+    margin: 0 auto;
     opacity: 0;
     visibility: hidden;
-    /* ★ 修正: 消えるときは即座に visibility: hidden */
     transition: opacity 0.3s ease-in-out, visibility 0s 0.3s; 
 }
 .phase-container.active {
-    display: block; /* 表示を有効化 */
+    display: block;
     opacity: 1;
     visibility: visible;
-    /* ★ 修正: 現れるときは visibility を即座に */
     transition: opacity 0.3s ease-in-out, visibility 0s 0s; 
 }
 
-
-/* カードスタイル調整 */
+/* カードスタイル */
 .card {
     background-color: var(--card-bg);
-    padding: 35px 20px; /* パディング微調整 */
-    border-radius: 24px; /* 角丸を大きく */
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06); /* 影をソフトに */
+    padding: 35px 20px;
+    border-radius: 24px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
     width: 100%;
     text-align: center;
     box-sizing: border-box;
-    position: relative; /* キャプチャ時のローディング表示基準のため */
+    position: relative;
 }
 
 /* --- Phase 1 Styles --- */
 .logo {
-    width: 130px; /* 少し小さく */
+    width: 130px;
     height: 130px;
     border-radius: 50%;
     margin: 0 auto 20px auto;
     display: block;
-    object-fit: cover; /* 画像がコンテナに収まるように */
+    object-fit: cover;
 }
 
 .main-title {
-    font-size: 20px; /* 26px から 24px に変更 */
+    font-size: 20px;
     color: var(--dark-color);
-    font-weight: 700; /* 太めに */
+    font-weight: 700;
     margin-bottom: 10px;
-    line-height:36px;
+    line-height: 36px;
 }
 
 .description {
-    color: var(--text-color-light); /* 少し薄い色に */
+    color: var(--text-color-light);
     line-height: 1.7;
-    margin-bottom: 35px; /* ボタンとの間隔 */
+    margin-bottom: 35px;
     font-size: 15px;
 }
 
 /* --- Form Styles --- */
 .form-title {
-    font-size: 24px; /* 少し大きく */
+    font-size: 24px;
     color: var(--dark-color);
     margin-bottom: 35px;
     font-weight: 600;
@@ -116,20 +108,20 @@ body {
 
 .form-group label {
     display: block;
-    font-weight: 600; /* 少し太く */
+    font-weight: 600;
     margin-bottom: 8px;
     color: var(--dark-color);
-    font-size: 14px; /* ラベルは少し小さく */
+    font-size: 14px;
 }
 
 .form-control {
     width: 100%;
-    padding: 14px 16px; /* パディング調整 */
+    padding: 14px 16px;
     border: 1px solid var(--border-color);
-    border-radius: 12px; /* 角丸を大きく */
+    border-radius: 12px;
     font-size: 16px;
     box-sizing: border-box;
-    background-color: #f9fafb; /* 背景色微調整 */
+    background-color: #f9fafb;
     color: var(--text-color);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -137,23 +129,99 @@ body {
 .form-control:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2); /* フォーカスリング */
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
 }
-/* Readonly input */
+
 .form-control[readonly] {
     background-color: #f3f4f6;
     color: var(--text-color-light);
     cursor: not-allowed;
 }
 
+/* --- Inspiration Upload Styles (Phase 2) --- */
+.inspiration-upload-container {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #f9fafb;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.inspiration-upload-container:hover {
+    border-color: #d1d5db;
+}
+
+/* アイコンまたはプレビュー画像 */
+#inspiration-image-preview {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    margin-right: 15px;
+    flex-shrink: 0;
+    object-fit: cover;
+    background-color: #eef2ff;
+    color: #4f46e5;
+    font-size: 24px;
+    line-height: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* 画像が読み込まれていない時 (壊れた画像アイコンを非表示) */
+#inspiration-image-preview:not([src]) {
+    content: '📷'; 
+    font-size: 24px;
+    color: #4f46e5;
+}
+/* 画像が読み込まれた時 */
+#inspiration-image-preview[src] {
+    content: ''; 
+}
+
+.inspiration-upload-text {
+    flex-grow: 1;
+    text-align: left;
+}
+#inspiration-upload-title {
+    display: block;
+    font-weight: 600;
+    color: var(--dark-color);
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+#inspiration-upload-status {
+    font-size: 13px;
+    color: var(--text-color-light);
+}
+
+/* 削除ボタン */
+.btn-delete {
+    background-color: transparent;
+    color: #ef4444; /* 赤色 */
+    border: none;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 10px;
+    display: none; /* デフォルト非表示 */
+}
+.btn-delete:hover {
+    background-color: #fee2e2;
+}
 
 /* 性別選択 */
 .gender-selection {
     display: flex;
-    justify-content: space-between; /* 均等配置から変更 */
+    justify-content: space-between;
     align-items: center;
     border: 1px solid var(--border-color);
-    border-radius: 12px; /* 角丸を大きく */
+    border-radius: 12px;
     padding: 6px;
     background-color: #f9fafb;
 }
@@ -165,16 +233,15 @@ body {
 .gender-selection label {
     flex: 1;
     text-align: center;
-    padding: 12px 0; /* パディング調整 */
-    margin: 0 3px; /* ラベル間の隙間 */
-    border-radius: 8px; /* 角丸 */
+    padding: 12px 0;
+    margin: 0 3px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
     font-weight: 500;
     color: var(--text-color-light);
 }
 
-/* ★★★ 提案③: 選択時の色をティファニーブルーに変更 ★★★ */
 .gender-selection input[type="radio"]:checked + label {
     background-color: var(--primary-color);
     color: white;
@@ -192,34 +259,32 @@ body {
     display: flex;
     align-items: center;
     margin-bottom: 15px;
-    padding: 12px 15px; /* パディング調整 */
+    padding: 12px 15px;
     background-color: #f9fafb;
-    border-radius: 14px; /* 角丸大きく */
+    border-radius: 14px;
     border: 1px solid var(--border-color);
 }
 
 .upload-icon {
-    width: 44px; /* 少し大きく */
+    width: 44px;
     height: 44px;
-    background-color: #eef2ff; /* アイコン背景色変更 */
+    background-color: #eef2ff;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
     margin-right: 15px;
     flex-shrink: 0;
-    color: #4f46e5; /* アイコン色 */
+    color: #4f46e5;
     font-size: 24px;
     line-height: 1;
-    transition: background-color 0.2s ease, color 0.2s ease; /* アニメーション追加 */
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* ★★★ 提案③: アップロード完了時のアイコンをティファニーブルー系に変更 ★★★ */
-.upload-icon.completed { /* JavaScript側でクラスを追加 */
-    background-color: var(--primary-color-lighter); /* #f0fdfa */
-    color: var(--primary-color-dark); /* #14b8a6 */
+.upload-icon.completed {
+    background-color: var(--primary-color-lighter);
+    color: var(--primary-color-dark);
 }
-
 
 .upload-text {
     flex-grow: 1;
@@ -228,7 +293,7 @@ body {
 
 .upload-text strong {
     display: block;
-    font-weight: 600; /* 少し太く */
+    font-weight: 600;
     color: var(--dark-color);
     font-size: 15px;
     margin-bottom: 2px;
@@ -239,19 +304,18 @@ body {
     color: var(--text-color-light);
 }
 
-/* ボタン共通スタイル調整 */
+/* ボタン共通スタイル */
 button {
     cursor: pointer;
     transition: all 0.2s ease;
-    font-weight: 600; /* ボタンの文字を少し太く */
+    font-weight: 600;
 }
 
-/* 撮影/選択ボタン */
 .btn-outline {
     background-color: white;
     color: var(--primary-color);
-    border: 1px solid var(--primary-color); /* 枠線を少し細く */
-    padding: 8px 18px; /* パディング調整 */
+    border: 1px solid var(--primary-color);
+    padding: 8px 18px;
     border-radius: 20px;
     font-size: 14px;
     font-weight: 600;
@@ -260,16 +324,15 @@ button {
     flex-shrink: 0;
 }
 
-.btn-outline:hover:not(:disabled) { /* disabledでない場合のみホバー */
-    background-color: var(--primary-color-lighter); /* ホバー背景色 */
+.btn-outline:hover:not(:disabled) {
+    background-color: var(--primary-color-lighter);
     transform: translateY(-1px);
 }
 
-.btn-outline:active:not(:disabled) { /* disabledでない場合のみクリック */
+.btn-outline:active:not(:disabled) {
     transform: translateY(0px);
 }
 
-/* 撮影完了ボタン */
 .btn-success {
     background-color: var(--success-color);
     color: white;
@@ -278,19 +341,18 @@ button {
     border-radius: 20px;
     font-size: 14px;
     font-weight: 600;
-    cursor: default; /* クリック不可なのでカーソル変更 */
+    cursor: default;
 }
 
-.btn-success:disabled { /* 撮影完了ボタンは常にdisabledなのでスタイルを適用 */
-   opacity: 1; /* disabledでも見た目はそのまま */
+.btn-success:disabled {
+   opacity: 1;
    cursor: default;
 }
 
-/* 無効化ボタン共通スタイル */
 .btn-disabled {
     background-color: var(--disabled-color) !important;
     border-color: var(--disabled-color) !important;
-    color: #94a3b8 !important; /* テキスト色 */
+    color: #94a3b8 !important;
     cursor: not-allowed !important;
     box-shadow: none !important;
 }
@@ -299,16 +361,15 @@ button {
     transform: none !important;
 }
 
-
 /* --- Spinner Styles --- */
 .spinner {
-    width: 48px; /* 少し小さく */
+    width: 48px;
     height: 48px;
-    border: 4px solid rgba(45, 212, 191, 0.2); /* 線の太さ調整 */
+    border: 4px solid rgba(45, 212, 191, 0.2);
     border-top-color: var(--primary-color);
     border-radius: 50%;
-    margin: 25px auto; /* マージン調整 */
-    animation: spin 0.8s linear infinite; /* 少し速く */
+    margin: 25px auto;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -326,32 +387,32 @@ button {
 .result-title {
     font-size: 18px;
     color: var(--dark-color);
-    margin-bottom: 18px; /* マージン調整 */
-    padding-bottom: 8px; /* パディング調整 */
-    border-bottom: 2px solid var(--primary-color-light); /* 境界線の色変更 */
+    margin-bottom: 18px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary-color-light);
     display: flex;
     align-items: center;
     font-weight: 600;
 }
 
 .result-icon {
-    width: 28px;       /* アイコンの幅を指定 */
-    height: 28px;      /* アイコンの高さを指定 */
+    width: 28px;
+    height: 28px;
     margin-right: 12px;
-    object-fit: contain; /* 画像の比率を保つ */
-    vertical-align: middle; /* タイトルテキストとの縦位置調整 */
+    object-fit: contain;
+    vertical-align: middle;
 }
 
 .result-grid {
     display: grid;
-    grid-template-columns: auto 1fr; /* ラベル幅は自動、値は残り */
-    gap: 10px 15px; /* ギャップ調整 */
-    padding-left: 5px; /* 左に少しインデント */
+    grid-template-columns: auto 1fr;
+    gap: 10px 15px;
+    padding-left: 5px;
 }
 
 .result-item-label {
-    font-weight: 500; /* 通常の太さに */
-    color: var(--text-color-light); /* 薄い色に */
+    font-weight: 500;
+    color: var(--text-color-light);
     font-size: 15px;
 }
 
@@ -376,38 +437,37 @@ button {
     font-weight: 600;
 }
 .proposal-icon {
-    width: 28px;       /* アイコンの幅を指定 */
-    height: 28px;      /* アイコンの高さを指定 */
+    width: 28px;
+    height: 28px;
     margin-right: 12px;
-    object-fit: contain; /* 画像の比率を保つ */
-    vertical-align: middle; /* タイトルテキストとの縦位置調整 */
+    object-fit: contain;
+    vertical-align: middle;
 }
 
 .proposal-grid {
     display: grid;
-    grid-template-columns: 1fr; /* 1列に変更 */
+    grid-template-columns: 1fr;
     gap: 15px;
 }
 .proposal-card {
     background-color: #f9fafb;
-    border: 2px solid var(--border-color); /* ★★★ 提案③: 枠線を2pxに変更 ★★★ */
-    padding: 18px; /* パディング調整 */
-    border-radius: 16px; /* 角丸調整 */
+    border: 2px solid var(--border-color);
+    padding: 18px;
+    border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-align: left; /* テキスト左寄せ */
+    text-align: left;
 }
 .proposal-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.07);
-    border-color: #d1d5db; /* ホバー時の枠線 */
+    border-color: #d1d5db;
 }
-/* ★★★ 提案③: 選択時のスタイルをティファニーブルーに変更 ★★★ */
 .proposal-card.selected {
-    border-color: var(--primary-color-dark); /* 濃いティファニーブルー */
-    background-color: var(--primary-color-lighter); /* #f0fdfa */
-    box-shadow: 0 4px 12px rgba(45, 212, 191, 0.2); /* 影 */
-    transform: none; /* 選択時は浮き上がらない */
+    border-color: var(--primary-color-dark);
+    background-color: var(--primary-color-lighter);
+    box-shadow: 0 4px 12px rgba(45, 212, 191, 0.2);
+    transform: none;
 }
 
 .proposal-card strong {
@@ -420,30 +480,30 @@ button {
 .proposal-card p {
     font-size: 14px;
     margin: 0;
-    line-height: 1.6; /* 行間調整 */
+    line-height: 1.6;
     color: var(--text-color-light);
 }
 
 .top-stylist-comment {
-    background-color: var(--primary-color-lighter); /* 背景色調整 */
+    background-color: var(--primary-color-lighter);
     border-left: 4px solid var(--primary-color);
-    padding: 18px; /* パディング調整 */
-    border-radius: 12px; /* 角丸調整 */
-    margin: 20px 0 10px 0; /* マージン調整 */
+    padding: 18px;
+    border-radius: 12px;
+    margin: 20px 0 10px 0;
 }
 .top-stylist-comment p {
     margin: 0;
     font-size: 15px;
-    line-height: 1.7; /* 行間調整 */
+    line-height: 1.7;
     color: var(--text-color);
 }
 
 .best-colors-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4色を横並びに */
+    grid-template-columns: repeat(4, 1fr);
     gap: 15px;
     padding: 10px 0;
-    justify-items: center; /* 中央揃え */
+    justify-items: center;
 }
 .color-swatch-item {
     display: flex;
@@ -456,7 +516,7 @@ button {
     border-radius: 50%;
     border: 2px solid var(--border-color);
     margin-bottom: 8px;
-    background-color: #ccc; /* デフォルト色 */
+    background-color: #ccc;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 .color-swatch-name {
@@ -468,9 +528,9 @@ button {
 
 .makeup-grid {
     display: grid;
-    grid-template-columns: auto 1fr; /* ラベル幅は自動、値は残り */
-    gap: 10px 15px; /* ギャップ調整 */
-    padding: 18px; /* パディング調整 */
+    grid-template-columns: auto 1fr;
+    gap: 10px 15px;
+    padding: 18px;
     background-color: #f9fafb;
     border: 1px solid var(--border-color);
     border-radius: 16px;
@@ -487,35 +547,32 @@ button {
     font-size: 15px;
 }
 
-
-/* --- Button Styles --- */
-/* プライマリボタン (例: 診断を始める) */
+/* --- Button Styles (Global) --- */
 .btn-primary {
-    display: inline-block; /* blockから変更 */
-    width: auto; /* 自動幅 */
-    min-width: 200px; /* 最小幅 */
+    display: inline-block;
+    width: auto;
+    min-width: 200px;
     margin: 0 auto;
     color: white;
-    font-size: 17px; /* 文字サイズ調整 */
+    font-size: 17px;
     font-weight: 600;
-    padding: 14px 35px; /* パディング調整 */
+    padding: 14px 35px;
     border: none;
     border-radius: 30px;
     cursor: pointer;
-    background: linear-gradient(to right, var(--primary-color), var(--primary-color-dark)); /* ★★★ 提案③: グラデーションの色を統一 ★★★ */
-    box-shadow: 0 4px 15px rgba(45, 212, 191, 0.3); /* 影調整 */
+    background: linear-gradient(to right, var(--primary-color), var(--primary-color-dark));
+    box-shadow: 0 4px 15px rgba(45, 212, 191, 0.3);
     transition: all 0.2s ease;
 }
 
-/* ★★★ 修正: フェーズ6の保存ボタン ★★★ */
 #phase6 .btn-primary {
     display: block;
     width: 100%;
-    margin-top: 25px; /* 微調整セクションからのマージン */
+    margin-top: 25px;
 }
 
 .btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.02); /* 少し浮き上がる */
+    transform: translateY(-2px) scale(1.02);
     box-shadow: 0 6px 20px rgba(45, 212, 191, 0.4);
 }
 .btn-primary:active:not(:disabled) {
@@ -523,27 +580,26 @@ button {
     box-shadow: 0 3px 10px rgba(45, 212, 191, 0.3);
 }
 
-/* ダークボタン (例: 次へ進む系) */
 .btn-dark {
-    display: block; /* 全幅ボタンはblockのまま */
+    display: block;
     width: 100%;
-    max-width: none; /* 最大幅解除 */
-    margin: 30px auto 0 auto; /* 上マージンのみ */
+    max-width: none;
+    margin: 30px auto 0 auto;
     color: white;
     font-size: 17px;
     font-weight: 600;
     padding: 14px 20px;
     border: none;
-    border-radius: 12px; /* 角丸調整 */
+    border-radius: 12px;
     cursor: pointer;
     background-color: var(--dark-color);
-    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2); /* 影調整 */
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2);
     transition: all 0.2s ease;
 }
 
 .btn-dark:hover:not(:disabled) {
     transform: translateY(-2px);
-    background-color: #1e293b; /* ホバー色 */
+    background-color: #1e293b;
     box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
 }
 .btn-dark:active:not(:disabled) {
@@ -551,45 +607,37 @@ button {
     box-shadow: 0 3px 10px rgba(15, 23, 42, 0.2);
 }
 
-/* セカンダリボタン (画像保存) */
 .btn-secondary {
     display: block;
     width: 100%;
-    margin: 15px auto 0 auto; /* 上マージンを少し小さく */
+    margin: 15px auto 0 auto;
     color: var(--primary-color);
-    font-size: 16px; /* 少し小さく */
+    font-size: 16px;
     font-weight: 600;
-    padding: 13px 20px; /* パディング調整 */
+    padding: 13px 20px;
     border: 1px solid var(--primary-color);
     border-radius: 12px;
     cursor: pointer;
-    background-color: var(--primary-color-lighter); /* 薄い背景色 */
+    background-color: var(--primary-color-lighter);
     transition: all 0.2s ease;
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background-color: #ccfbf1; /* ホバー色 */
+    background-color: #ccfbf1;
     transform: translateY(-1px);
 }
 .btn-secondary:active:not(:disabled) {
     transform: translateY(0px);
 }
 
-/* 戻るボタン用の白背景スタイル */
 .btn-secondary-white {
     background-color: white;
-    margin-top: 10px; /* 他のボタンとの間隔 */
+    margin-top: 10px;
 }
 .btn-secondary-white:hover:not(:disabled) {
-    background-color: #f8fafc; /* 白ホバー色 */
+    background-color: #f8fafc;
 }
 
-/* キャプチャ（画像保存）時に非表示にする */
-.no-print {
-    /* JS側で visibility を制御 */
-}
-
-/* キャプチャ中のローディングテキスト */
 .capture-loading-text {
     position: absolute;
     top: 50%;
@@ -602,55 +650,49 @@ button {
     color: var(--dark-color);
     font-weight: 600;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    /* .no-print クラスと併用されるため、JS側で表示制御 */
 }
 
-
 /* --- Phase 6 Result --- */
-/* ★ 追加: 画像とスピナーのコンテナ */
 .generated-image-container {
     position: relative;
     width: 100%;
-    max-width: 350px; /* 画像の最大幅（任意） */
-    min-height: 200px; /* 読み込み中の高さを確保 */
-    margin: 0 auto 25px auto; /* 下マージンを画像自体からコンテナに移動 */
+    max-width: 350px;
+    min-height: 200px;
+    margin: 0 auto 25px auto;
 }
 #generated-image {
-    display: block; /* 中央寄せのため */
+    display: block;
     max-width: 100%;
     height: auto;
-    border-radius: 16px; /* 角丸調整 */
-    border: 1px solid var(--border-color); /* 枠線追加 */
-    background-color: #f3f4f6; /* 読み込み中用背景 */
-    margin: 0; /* マージンリセット */
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    background-color: #f3f4f6;
+    margin: 0;
     transition: opacity 0.3s ease;
 }
-/* ★ 追加: 微調整中のスピナー */
 #refinement-spinner {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     margin: 0;
-    display: none; /* JSで制御 */
+    display: none;
     z-index: 10;
 }
 
-
-/* ★★★ 追加: 微調整セクション ★★★ */
+/* 微調整セクション */
 .refinement-section {
-    margin-top: 20px;
-    padding: 25px;
+    margin-top: 30px;
+    padding: 20px;
     border: 1px solid var(--border-color);
     background-color: #f9fafb;
     border-radius: 16px;
     text-align: left;
 }
-/* ★ 追加: 微調整セクションのタイトル */
 .refinement-title {
     font-size: 18px;
     color: var(--dark-color);
-    margin: 0 0 10px 0; /* マージン調整 */
+    margin: 0 0 10px 0;
     display: flex;
     align-items: center;
     font-weight: 600;
@@ -659,150 +701,22 @@ button {
     width: 100%;
 }
 #refine-image-btn {
-    margin-top: 0; /* form-group のマージンがあるので 0 に */
+    margin-top: 0;
     font-size: 16px;
 }
-/* ★★★ 追加: フェーズ6の「提案に戻る」ボタン ★★★ */
+
+/* フェーズ6「提案に戻る」ボタン */
 #phase6 .btn-outline {
     display: block;
     width: 100%;
     margin-top: 15px;
-    box-sizing: border-box; /* paddingがwidthに含まれるように */
-}
-
-
-/* ★★★ 新規追加: 動画撮影モーダル ★★★ */
-#video-recorder-modal {
-    display: none; /* JSで制御 */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); /* 半透明の黒背景 */
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    padding: 20px;
     box-sizing: border-box;
-}
-
-#video-recorder-modal.active {
-    display: flex; /* Flexboxで中央揃え */
-    justify-content: center;
-    align-items: center;
-    opacity: 1;
-}
-
-.video-modal-content {
-    background-color: var(--card-bg);
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-    position: relative; /* スピナーやタイマーの基準 */
-}
-
-.video-modal-content h3 {
-    font-size: 20px;
-    color: var(--dark-color);
-    margin-top: 0;
-    margin-bottom: 10px;
-}
-
-.video-modal-content p {
-    font-size: 15px;
+    background-color: white;
     color: var(--text-color-light);
-    margin-bottom: 20px;
+    border-color: var(--border-color);
 }
-
-#video-preview {
-    width: 100%;
-    height: auto;
-    max-height: 40vh; /* 高すぎないように */
-    border-radius: 12px;
-    background-color: #000;
-    border: 1px solid var(--border-color);
-    margin-bottom: 20px;
-    /* インカメラ映像を鏡写しにする (インカメラ(user)の場合) */
-    transform: scaleX(-1);
-}
-
-#video-timer {
-    position: absolute;
-    top: 35px;
-    left: 35px;
-    background-color: rgba(217, 74, 74, 0.8);
-    color: white;
-    font-size: 24px;
-    font-weight: 700;
-    padding: 5px 10px;
-    border-radius: 8px;
-    display: none; /* JSで制御 */
-    z-index: 10;
-}
-
-/* 録画ボタン (btn-danger スタイル) */
-.btn-danger {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px; /* アイコンとテキストの間隔 */
-    width: 100%;
-    color: white;
-    font-size: 17px;
-    font-weight: 600;
-    padding: 14px 20px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    background-color: #ef4444; /* 赤色 */
-    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-    transition: all 0.2s ease;
-    box-sizing: border-box; /* パディングを含める */
-}
-.btn-danger .icon {
-    width: 20px;
-    height: 20px;
-    background-color: white;
-    border-radius: 50%;
-    transition: border-radius 0.2s ease; /* 録画中の変形アニメーション */
-}
-/* 録画中 */
-.btn-danger.recording .icon {
-    border-radius: 4px; /* 四角に変更 */
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
-
-.btn-danger:hover:not(:disabled) {
-    background-color: #dc2626; /* 濃い赤 */
-}
-
-/* キャンセルボタン (btn-secondary-white と同じスタイルを流用) */
-#video-cancel-btn {
-    display: block;
-    width: 100%;
-    margin: 15px auto 0 auto;
-    color: var(--primary-color);
-    font-size: 16px;
-    font-weight: 600;
-    padding: 13px 20px;
-    border: 1px solid var(--primary-color);
-    border-radius: 12px;
-    cursor: pointer;
-    background-color: white;
-    transition: all 0.2s ease;
-    box-sizing: border-box; /* パディングを含める */
-}
-#video-cancel-btn:hover:not(:disabled) {
+#phase6 .btn-outline:hover:not(:disabled) {
     background-color: #f8fafc;
+    color: var(--text-color);
+    border-color: #d1d5db;
 }
