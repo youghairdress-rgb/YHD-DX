@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, createResultItem, setTextContent } from './helpers.js';
+import { appState } from './state.js';
 
 /**
  * フェーズ（画面）を切り替える
@@ -17,6 +18,11 @@ export function changePhase(phaseId) {
     if (targetPhase) {
         targetPhase.classList.add('active');
         window.scrollTo(0, 0); 
+        
+        // Phase 6 に遷移した時に設定UIを生成する
+        if (phaseId === 'phase6') {
+            renderGenerationConfigUI();
+        }
     } else {
         // 指定がなければPhase1に戻す
         document.getElementById('phase1')?.classList.add('active');
@@ -72,12 +78,9 @@ export function displayDiagnosisResult(result) {
 
 /**
  * AI提案結果 (Phase 5) を画面に表示する
- * ★ 修正: hasInspirationImage 引数を追加し、ご希望カードを表示
  * @param {object} proposal - 提案オブジェクト
- * @param {function} onProposalClick - 提案カードクリック時のハンドラ
- * @param {boolean} hasInspirationImage - ご希望写真があるかどうか
  */
-export function displayProposalResult(proposal, onProposalClick, hasInspirationImage = false) {
+export function displayProposalResult(proposal) {
     const containers = {
         hairstyle: document.getElementById('hairstyle-proposal'),
         haircolor: document.getElementById('haircolor-proposal'),
@@ -91,64 +94,33 @@ export function displayProposalResult(proposal, onProposalClick, hasInspirationI
 
     if (!proposal) return;
 
-    // 共通のカード作成ヘルパー
-    const createCard = (type, key, title, desc, isSelected = false) => {
+    // 共通のカード作成ヘルパー (Phase 5用: 選択機能なし)
+    const createInfoCard = (title, desc, recLevel) => {
         const card = document.createElement('div');
-        card.className = 'proposal-card';
-        if (isSelected) card.classList.add('selected');
-        
-        card.dataset.type = type;
-        card.dataset.key = key;
-        card.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${desc}</p>`; 
-        card.addEventListener('click', onProposalClick);
+        card.className = 'proposal-card'; // 選択機能はないが見た目は同じ
+        // クリックイベントは設定しない
+        const levelHtml = recLevel ? `<br><small>推奨: ${escapeHtml(recLevel)}</small>` : '';
+        card.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${escapeHtml(desc)}${levelHtml}</p>`;
         return card;
     };
 
-    // 1. ヘアスタイル提案
+    // 1. ヘアスタイル提案 (表示のみ)
     if (proposal.hairstyles && containers.hairstyle) {
-        Object.entries(proposal.hairstyles).forEach(([key, style]) => {
-            const card = createCard('hairstyle', key, style.name, escapeHtml(style.description), key === 'style1');
+        Object.values(proposal.hairstyles).forEach((style) => {
+            const card = createInfoCard(style.name, style.description);
             containers.hairstyle.appendChild(card);
         });
-        
-        // ★ 追加: ご希望スタイルボタン
-        if (hasInspirationImage) {
-            const card = createCard(
-                'hairstyle', 
-                'user_request', 
-                '★ ご希望のヘアスタイル', 
-                'アップロードされた写真を参考に再現します。'
-            );
-            // 特別なスタイルを適用
-            card.style.borderStyle = 'dashed';
-            card.style.borderColor = 'var(--primary-color-dark)';
-            containers.hairstyle.appendChild(card);
-        }
     }
 
-    // 2. ヘアカラー提案
+    // 2. ヘアカラー提案 (表示のみ)
     if (proposal.haircolors && containers.haircolor) {
-        Object.entries(proposal.haircolors).forEach(([key, color]) => {
-            const recLevel = color.recommendedLevel ? `<br><small>推奨: ${escapeHtml(color.recommendedLevel)}</small>` : '';
-            const card = createCard('haircolor', key, color.name, escapeHtml(color.description) + recLevel, key === 'color1');
+        Object.values(proposal.haircolors).forEach((color) => {
+            const card = createInfoCard(color.name, color.description, color.recommendedLevel);
             containers.haircolor.appendChild(card);
         });
-
-        // ★ 追加: ご希望カラーボタン
-        if (hasInspirationImage) {
-            const card = createCard(
-                'haircolor', 
-                'user_request', 
-                '★ ご希望のヘアカラー', 
-                'アップロードされた写真を参考に再現します。'
-            );
-            card.style.borderStyle = 'dashed';
-            card.style.borderColor = 'var(--primary-color-dark)';
-            containers.haircolor.appendChild(card);
-        }
     }
 
-    // 3. ベストカラー (スウォッチ表示)
+    // 3. ベストカラー
     if (proposal.bestColors && containers.bestColors) {
         Object.values(proposal.bestColors).forEach(color => {
             if (!color.hex) return;
@@ -191,6 +163,80 @@ export function displayProposalResult(proposal, onProposalClick, hasInspirationI
 }
 
 /**
+ * Phase 6: 画像生成の設定UI (ラジオボタン群) をレンダリングする
+ */
+function renderGenerationConfigUI() {
+    const styleContainer = document.getElementById('style-selection-group');
+    const colorContainer = document.getElementById('color-selection-group');
+    const proposal = appState.aiProposal;
+    const hasInspiration = !!appState.inspirationImageUrl;
+
+    if (!styleContainer || !colorContainer || !proposal) return;
+
+    // Helper: ラジオボタンのHTML生成
+    const createRadioOption = (groupName, value, labelText, isChecked = false) => {
+        const id = `${groupName}-${value}`;
+        return `
+            <div class="radio-option">
+                <input type="radio" id="${id}" name="${groupName}" value="${value}" ${isChecked ? 'checked' : ''}>
+                <label for="${id}">${escapeHtml(labelText)}</label>
+            </div>
+        `;
+    };
+
+    // 1. スタイル選択肢の生成
+    let styleHtml = '';
+    // 提案スタイル1 & 2
+    if (proposal.hairstyles) {
+        styleHtml += createRadioOption('style-select', 'style1', `提案Style1: ${proposal.hairstyles.style1.name}`, true);
+        styleHtml += createRadioOption('style-select', 'style2', `提案Style2: ${proposal.hairstyles.style2.name}`);
+    }
+    // ご希望スタイル (あれば)
+    if (hasInspiration) {
+        styleHtml += createRadioOption('style-select', 'user_request', '★ ご希望のStyle (写真から再現)');
+    }
+    // スタイルは変えない (Keep)
+    styleHtml += createRadioOption('style-select', 'keep_style', 'スタイルは変えない (現在の髪型のまま)');
+    
+    styleContainer.innerHTML = styleHtml;
+    
+    // イベントリスナー設定 (appState更新)
+    document.querySelectorAll('input[name="style-select"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            appState.selectedProposal.hairstyle = e.target.value;
+        });
+    });
+    // 初期値をセット
+    appState.selectedProposal.hairstyle = 'style1';
+
+
+    // 2. カラー選択肢の生成
+    let colorHtml = '';
+    // 提案カラー1 & 2
+    if (proposal.haircolors) {
+        colorHtml += createRadioOption('color-select', 'color1', `提案Color1: ${proposal.haircolors.color1.name}`, true);
+        colorHtml += createRadioOption('color-select', 'color2', `提案Color2: ${proposal.haircolors.color2.name}`);
+    }
+    // ご希望カラー (あれば)
+    if (hasInspiration) {
+        colorHtml += createRadioOption('color-select', 'user_request', '★ ご希望のColor (写真から再現)');
+    }
+    // カラーは変えない (Keep)
+    colorHtml += createRadioOption('color-select', 'keep_color', 'ヘアカラーは変えない (現在の髪色のまま)');
+
+    colorContainer.innerHTML = colorHtml;
+
+    // イベントリスナー設定 (appState更新)
+    document.querySelectorAll('input[name="color-select"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            appState.selectedProposal.haircolor = e.target.value;
+        });
+    });
+    // 初期値をセット
+    appState.selectedProposal.haircolor = 'color1';
+}
+
+/**
  * ファイルアップロード完了状態に応じてボタンを有効化/無効化する
  * @param {boolean} allUploaded - 全ての必須ファイルがアップロードされたか
  */
@@ -206,21 +252,7 @@ export function checkAllFilesUploaded(allUploaded) {
     }
 }
 
-/**
- * 提案選択状態に応じてボタンを有効化/無効化する
- * @param {boolean} bothSelected - ヘアスタイルとカラー両方が選択されているか
- */
-export function checkProposalSelection(bothSelected) {
-    const btn = document.getElementById('next-to-generate-btn');
-    if (btn) {
-        btn.disabled = !bothSelected;
-        if (bothSelected) {
-            btn.classList.remove('btn-disabled');
-        } else {
-            btn.classList.add('btn-disabled');
-        }
-    }
-}
+// checkProposalSelection は不要になったため削除 (未選択でも進めるため)
 
 /**
  * キャプチャ中のローディングテキストを更新する (画像保存機能用)
@@ -242,8 +274,9 @@ export function updateCaptureLoadingText(element, text) {
 export function displayGeneratedImage(base64Data, mimeType, styleName, colorName, toneLevel) {
     const generatedImage = document.getElementById('generated-image');
     const generatedImageContainer = document.querySelector('.generated-image-container');
-    const descriptionEl = document.getElementById('generated-image-description'); // ★追加
+    const descriptionEl = document.getElementById('generated-image-description');
     const saveButton = document.getElementById('save-generated-image-to-db-btn');
+    const postActions = document.getElementById('post-generation-actions'); // 保存・共有ボタンのコンテナ
     
     if (generatedImage) {
         const dataUrl = `data:${mimeType};base64,${base64Data}`;
@@ -255,19 +288,25 @@ export function displayGeneratedImage(base64Data, mimeType, styleName, colorName
         }
     }
 
-    // ★追加: 説明テキストの更新
+    // 説明テキストの更新
     if (descriptionEl) {
-        // トーンの表示形式を整形 (例: "Tone 9" -> "9トーン")
         const toneDisplay = toneLevel ? toneLevel.replace('Tone ', '') + 'トーン' : 'AI推奨トーン';
         
-        // テキストを生成: 例「センターパートアップバング ✖ 9トーン の オリーブブラウン」
-        const text = `${styleName || 'スタイル'} ✖ ${toneDisplay} の ${colorName || 'カラー'}`;
+        // 表示ロジックの微調整 (Keepの場合の表示)
+        const styleDisplay = styleName === 'keep_style' ? '現在の髪型' : (styleName || 'スタイル');
+        const colorDisplay = colorName === 'keep_color' ? '現在の髪色' : (colorName || 'カラー');
+
+        const text = `${styleDisplay} ✖ ${toneDisplay} の ${colorDisplay}`;
         
         descriptionEl.textContent = text;
         descriptionEl.style.fontWeight = 'bold'; 
         descriptionEl.style.color = 'var(--dark-color)';
     }
     
+    // 保存ボタン群を表示
+    if (postActions) {
+        postActions.style.display = 'block';
+    }
     if (saveButton) {
         saveButton.disabled = false;
         saveButton.classList.remove('btn-disabled');

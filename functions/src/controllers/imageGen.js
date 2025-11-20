@@ -75,7 +75,10 @@ async function generateHairstyleImageController(req, res, dependencies) {
     inspirationImageUrl, 
     isUserStyle, 
     isUserColor,
-    hasToneOverride // ★ 追加
+    hasToneOverride,
+    // ★ 追加: Keepフラグ
+    keepStyle,
+    keepColor
   } = req.body;
 
   if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !currentLevel) {
@@ -88,7 +91,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
   // 4. Gemini API リクエストペイロードの作成
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
-  // ★ プロンプト生成関数へフラグを渡す
+  // ★ プロンプト生成関数へ全てのフラグを渡す
   const prompt = getGenerationPrompt({
     hairstyleName,
     hairstyleDesc,
@@ -100,7 +103,9 @@ async function generateHairstyleImageController(req, res, dependencies) {
     hasInspirationImage: !!inspirationImageUrl,
     isUserStyle: !!isUserStyle,
     isUserColor: !!isUserColor,
-    hasToneOverride: !!hasToneOverride // ★ 追加
+    hasToneOverride: !!hasToneOverride,
+    keepStyle: !!keepStyle, // ★ 追加
+    keepColor: !!keepColor  // ★ 追加
   });
 
   const payload = {

@@ -75,7 +75,6 @@
                 </div>
             </div>
             
-            <!-- ★★★ ロードマップ 2-1 (カウンセリング機能) 対応 ★★★ -->
             <div class="form-group">
                 <label for="user-requests">ご希望のメニューやご要望 (任意)</label>
                 <textarea id="user-requests" class="form-control" rows="4" placeholder="（例）カットとカラー希望。赤みが出ないようにしたい。"></textarea>
@@ -86,20 +85,17 @@
                 <input type="file" id="inspiration-image-input" class="file-input" accept="image/*" hidden>
                 
                 <div id="inspiration-upload-container" class="inspiration-upload-container" role="button" tabindex="0">
-                    <!-- ★ 修正: アイコンフォントからインライン画像に変更 -->
                     <img id="inspiration-image-preview" alt="プレビュー">
-                    <div class="inspiration-upload-icon-placeholder"></div> <!-- CSSでアイコン表示用 (後で実装) -->
+                    <div class="inspiration-upload-icon-placeholder"></div> 
                     
                     <div class="inspiration-upload-text">
                         <strong id="inspiration-upload-title">写真を選択</strong>
                         <span id="inspiration-upload-status">タップして画像を選択</span>
                     </div>
                     <button id="inspiration-upload-btn" class="btn-outline">選択</button>
-                    <!-- ★ 修正: 削除ボタンを追加 -->
                     <button id="inspiration-delete-btn" class="btn-delete" style="display: none;">削除</button>
                 </div>
             </div>
-            <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
 
             <button id="next-to-upload-btn" class="btn-dark">撮影に進む</button>
         </div>
@@ -123,7 +119,6 @@
                      <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
                      <div class="upload-icon">📷</div><div class="upload-text"><strong>写真：バック</strong><span>後ろ全体の髪型</span></div><button class="btn-outline">撮影</button>
                  </div>
-                 <!-- ★★★ 修正: 動画用 input を復活 ★★★ -->
                  <div id="item-front-video" class="upload-item">
                      <input type="file" class="file-input" accept="video/*" capture="environment" hidden>
                      <div class="upload-icon">🎬</div>
@@ -142,7 +137,6 @@
                      </div>
                      <button class="btn-outline">撮影</button>
                  </div>
-                 <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
              </div>
              <button id="request-diagnosis-btn" class="btn-dark btn-disabled" disabled>AI診断をリクエスト</button>
          </div>
@@ -160,7 +154,7 @@
      <!-- Phase 4: Diagnosis Result -->
     <div id="phase4" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AI Diagnosis</h2>
+             <h2 class="form-title">AI診断結果</h2>
              
              <div class="result-section">
                  <h3 class="result-title"><img src="images/顔診断.png" alt="" class="result-icon"> お顔の特徴</h3>
@@ -187,28 +181,63 @@
      <!-- Phase 5: Proposal -->
     <div id="phase5" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AI Style Proposal</h2>
+             <h2 class="form-title">AIパーソナル提案</h2>
              
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> 似合うヘアスタイル</h3>
                  <div id="hairstyle-proposal" class="proposal-grid"></div>
-                 
-                 <!-- JSでここに「ご希望スタイル」カードが追加される -->
              </div>
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 似合うヘアカラー</h3>
                  <div id="haircolor-proposal" class="proposal-grid"></div>
+             </div>
+             <!-- ★ トーン選択セクションはPhase 6へ移動のため削除 -->
 
-                 <!-- JSでここに「ご希望カラー」カードが追加される -->
+             <div class="proposal-section">
+                 <h3 class="proposal-title"><img src="images/カラーパターン.png" alt="" class="proposal-icon"> 相性ベストカラー</h3>
+                 <div id="best-colors-proposal" class="best-colors-grid"></div>
              </div>
 
-             <!-- ★★★ 新規追加: トーン選択セクション ★★★ -->
-             <div class="proposal-section" id="tone-selection-section">
-                 <h3 class="proposal-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 明るさ（トーン）の選択</h3>
-                 <p class="description" style="margin-bottom: 10px; font-size: 14px; text-align: left;">
-                     ご希望の髪の明るさを選んでください。<br>
-                     <small>※選択しない場合は、AI提案の明るさが適用されます。</small>
-                 </p>
+             <div class="proposal-section">
+                 <h3 class="proposal-title"><img src="images/メイク.png" alt="" class="proposal-icon"> 似合うメイク</h3>
+                 <div id="makeup-proposal" class="makeup-grid"></div>
+             </div>
+             
+             <div class="proposal-section">
+                 <h3 class="proposal-title"><img src="images/骨格診断.png" alt="" class="proposal-icon"> 似合うファッション</h3>
+                 <div id="fashion-proposal" class="makeup-grid"></div>
+             </div>
+
+             <div class="proposal-section">
+                 <h3 class="proposal-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> AIからのアドバイス</h3>
+                 <div class="top-stylist-comment">
+                     <p id="top-stylist-comment-text"></p>
+                 </div>
+             </div>
+             
+             <!-- ★ Phase 5の生成ボタンを「設定へ進む」ボタンに変更 -->
+             <button id="move-to-phase6-btn" class="btn-dark">画像生成の設定へ</button>
+             <button id="save-phase5-btn" class="btn-secondary no-print">提案内容を画像で保存</button>
+             <button id="back-to-diagnosis-btn" class="btn-secondary btn-secondary-white no-print">診断結果に戻る</button>
+         </div>
+    </div>
+    
+    <!-- Phase 6: Setup & Generated Image -->
+    <div id="phase6" class="phase-container">
+         <div class="card">
+             <h2 class="form-title">画像生成シミュレーター</h2>
+
+             <!-- ★★★ 画像生成設定セクション (新規追加) ★★★ -->
+             <div id="generation-config-section" class="refinement-section">
+                 <h3 class="refinement-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> スタイルの選択</h3>
+                 <!-- ui.js で動的にラジオボタンを生成 -->
+                 <div id="style-selection-group" class="form-group"></div>
+
+                 <h3 class="refinement-title" style="margin-top: 20px;"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> カラーの選択</h3>
+                 <!-- ui.js で動的にラジオボタンを生成 -->
+                 <div id="color-selection-group" class="form-group"></div>
+
+                 <h3 class="refinement-title" style="margin-top: 20px;"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 明るさ（トーン）</h3>
                  <div class="form-group">
                      <select id="hair-tone-select" class="form-control">
                          <option value="">AIにお任せ (提案通り)</option>
@@ -221,68 +250,25 @@
                          <option value="Tone 18">トーン 18: 白に近い金髪 (ホワイトブリーチ)</option>
                      </select>
                  </div>
-             </div>
-             <!-- ▲▲▲ ここまで ▲▲▲ -->
 
-             <div class="proposal-section">
-                 <h3 class="proposal-title"><img src="images/カラーパターン.png" alt="" class="proposal-icon"> 相性ベストカラー</h3>
-                 <div id="best-colors-proposal" class="best-colors-grid"></div>
-             </div>
-
-             <div class="proposal-section">
-                 <h3 class="proposal-title"><img src="images/メイク.png" alt="" class="proposal-icon"> 似合うメイク</h3>
-                 <div id="makeup-proposal" class="makeup-grid"></div>
+                 <button id="generate-image-btn" class="btn-primary">合成画像を生成</button>
              </div>
              
-             <!-- ★★★ 新規追加 (ロードマップ 2-1 ファッション提案) ★★★ -->
-             <div class="proposal-section">
-                 <h3 class="proposal-title"><img src="images/骨格診断.png" alt="" class="proposal-icon"> 似合うファッション</h3>
-                 <div id="fashion-proposal" class="makeup-grid"></div>
-             </div>
-             <!-- ▲▲▲ 修正ここまで ▲▲▲ -->
-
-             <div class="proposal-section">
-                 <h3 class="proposal-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> AIからのアドバイス</h3>
-                 <div class="top-stylist-comment">
-                     <p id="top-stylist-comment-text"></p>
-                 </div>
-             </div>
-             
-             <button id="next-to-generate-btn" class="btn-dark btn-disabled" disabled>合成画像を作成</button>
-             <button id="save-phase5-btn" class="btn-secondary no-print">提案内容を画像で保存</button>
-             <button id="back-to-diagnosis-btn" class="btn-secondary btn-secondary-white no-print">診断結果に戻る</button>
-         </div>
-    </div>
-    
-    <!-- Phase 6: Generated Image -->
-    <div id="phase6" class="phase-container">
-         <div class="card">
-             <h2 class="form-title">HairStyle Composite</h2>
-             
-             <div class="generated-image-container">
-                 <img id="generated-image" src="https://placehold.co/300x300/e2e8f0/cbd5e1?text=Awaiting..." alt="合成されたヘアスタイル">
+             <!-- 生成結果表示エリア -->
+             <div class="generated-image-container" style="margin-top: 30px; display: none;">
+                 <img id="generated-image" src="" alt="合成されたヘアスタイル">
                  <div id="refinement-spinner" class="spinner" style="display: none;"></div>
              </div>
              
-             <!-- ★ 変更: IDを追加し、初期テキストを空またはプレースホルダーにする -->
-             <p id="generated-image-description" class="description">生成結果を表示します</p>
+             <p id="generated-image-description" class="description"></p>
 
-             <!-- ★★★ 修正: 微調整セクション ★★★ -->
-             <div class="refinement-section">
-                 <h3 class="refinement-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> 画像の微調整</h3>
-                <p class="description" style="margin-bottom: 15px; font-size: 14px; text-align: left;">「もう少し明るく」「前髪を短く」など、要望を伝えて画像を調整できます。</p>
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <input type="text" id="refinement-prompt-input" class="form-control" placeholder="例：もう少し髪を明るくして">
-                </div>
-                <button id="refine-image-btn" class="btn-dark">変更を反映する</button>
+             <!-- 保存・共有ボタン群 (生成後に表示) -->
+             <div id="post-generation-actions" style="display: none;">
+                 <button id="save-generated-image-to-db-btn" class="btn-primary no-print">この合成画像を保存する</button>
+                 <button id="share-phase6-btn" class="btn-secondary no-print">結果を保存してLINEで共有</button>
              </div>
              
-             <button id="save-generated-image-to-db-btn" class="btn-primary no-print" disabled>この合成画像を保存する</button>
-             <button id="share-phase6-btn" class="btn-secondary no-print">結果を保存してLINEで共有</button>
-             
-             <button id="switch-color-btn" class="btn-outline no-print" style="display: none;"></button>
-             
-             <button id="back-to-proposal-btn" class="btn-outline">提案に戻る</button>
+             <button id="back-to-proposal-btn" class="btn-outline" style="margin-top: 20px;">提案に戻る</button>
 
              <button id="close-liff-btn" class="btn-secondary btn-secondary-white no-print">
                  アプリを終了する
@@ -290,7 +276,7 @@
          </div>
     </div>
 
-    <!-- ★★★ カスタムモーダル (共通) ★★★ -->
+    <!-- カスタムモーダル (共通) -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">

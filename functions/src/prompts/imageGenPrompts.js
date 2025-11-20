@@ -4,6 +4,7 @@
  * 画像生成 (フェーズ6) のためのAIプロンプトを定義する
  * Phase 3-2 Update: 顔の保護強化、ライティング統合、質感向上のためのチューニング済み
  * + トーン選択機能対応
+ * + Keep (スタイル/カラー維持) 機能対応
  */
 
 /**
@@ -20,17 +21,19 @@
  * @param {boolean} data.isUserStyle - ご希望スタイル優先フラグ
  * @param {boolean} data.isUserColor - ご希望カラー優先フラグ
  * @param {boolean} data.hasToneOverride - トーン指定上書きフラグ
+ * @param {boolean} data.keepStyle - スタイル維持フラグ
+ * @param {boolean} data.keepColor - カラー維持フラグ
  * @return {string} - Gemini API に渡すプロンプト
  */
 function getGenerationPrompt(data) {
   const {
     hairstyleName, hairstyleDesc, haircolorName, haircolorDesc,
     recommendedLevel, currentLevel, userRequestsText, hasInspirationImage,
-    isUserStyle, isUserColor, hasToneOverride
+    isUserStyle, isUserColor, hasToneOverride,
+    keepStyle, keepColor
   } = data;
 
-  // ... existing requestPromptPart ...
-  // ユーザーの要望テキストが空でない場合、プロンプトに差し込む
+  // ユーザーの要望テキスト
   const requestPromptPart = userRequestsText
     ? `
 **USER REQUEST (Highest Priority):**
@@ -39,8 +42,7 @@ function getGenerationPrompt(data) {
 `
     : "";
 
-  // ... existing inspirationPromptPart ...
-  // ご希望写真がある場合
+  // ご希望写真
   const inspirationPromptPart = hasInspirationImage
     ? `
 **STYLE REFERENCE IMAGE:**
@@ -49,30 +51,52 @@ function getGenerationPrompt(data) {
 `
     : "";
 
-  // スタイル指定の構築
+  // --- スタイル指定ロジック ---
   let styleInstruction;
-  if (isUserStyle && hasInspirationImage) {
-      styleInstruction = `
+  if (keepStyle) {
+    styleInstruction = `
+- **Style Name:** Current Style (KEEP)
+- **Style Description:** **DO NOT CHANGE THE HAIRSTYLE.**
+  - Maintain the user's original hair length, silhouette, and texture EXACTLY as they are in the Base Image.
+  - Only modify the hair color if instructed.
+`;
+  } else if (isUserStyle && hasInspirationImage) {
+    styleInstruction = `
 - **Style Name:** User's Desired Style
 - **Style Description:** **STRICTLY COPY THE HAIRSTYLE SILHOUETTE, LENGTH, AND TEXTURE FROM THE REFERENCE IMAGE (Image 2).**
   - Ignore any other style descriptions.
   - Apply the exact hairstyle from Image 2 to the user in Image 1, adjusting naturally for head shape.
 `;
   } else {
-      styleInstruction = `
+    styleInstruction = `
 - **Style Name:** ${hairstyleName}
 - **Style Description:** ${hairstyleDesc}
 `;
   }
 
-  // カラー指定の構築
-  // トーン指定がある場合は、それを明るさの基準として強制する
+  // --- カラー指定ロジック ---
   let colorInstruction;
+  // 明るさ指定テキスト
   const toneInstruction = hasToneOverride 
       ? `**IMPORTANT:** The user has explicitly selected **${recommendedLevel}**. You MUST adjust the brightness to match this specific tone level strictly, regardless of the color name.`
       : `**Target Brightness:** ${recommendedLevel} (JHCA Level Scale)\n  - *Logic:* Transform from current ${currentLevel} to ${recommendedLevel}.`;
 
-  if (isUserColor && hasInspirationImage && !hasToneOverride) {
+  if (keepColor) {
+    // カラー維持の場合
+    // トーン指定がある場合は、今の色味で明るさだけ変える
+    if (hasToneOverride) {
+         colorInstruction = `
+- **Color Name:** Current Color (Brightness Adjusted)
+- **Color Description:** Keep the original hue and saturation of the user's hair from the Base Image, BUT adjust the **brightness** to match **${recommendedLevel}**.
+`;
+    } else {
+         colorInstruction = `
+- **Color Name:** Current Color (KEEP)
+- **Color Description:** **DO NOT CHANGE THE HAIR COLOR.**
+  - Maintain the user's original hair color (hue, saturation, brightness) EXACTLY as it is in the Base Image.
+`;
+    }
+  } else if (isUserColor && hasInspirationImage && !hasToneOverride) {
       // ご希望カラーかつトーン指定なし -> 写真を完全コピー
       colorInstruction = `
 - **Color Name:** User's Desired Color
