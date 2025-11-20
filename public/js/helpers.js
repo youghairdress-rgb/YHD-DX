@@ -68,38 +68,77 @@ export function base64ToBlob(base64, mimeType) {
     }
 }
 
-// --- Image Processing ---
+// --- Image Processing (Optimized for AI) ---
 
-export function compressImage(file, maxWidth = 1600, quality = 0.85) {
+/**
+ * 画像をAI認識に最適なサイズ・品質に圧縮する
+ * 目標: 長辺2048px以内, ファイルサイズ2MB以下
+ * @param {File} file - 元画像ファイル
+ * @param {number} maxWidth - 最大幅 (デフォルト2048)
+ * @param {number} quality - 画質 (0.0 - 1.0, デフォルト0.92)
+ * @return {Promise<File>}
+ */
+export function compressImage(file, maxWidth = 2048, quality = 0.92) {
     return new Promise((resolve, reject) => {
         if (!file.type.match(/image.*/)) return reject(new Error('Not an image file'));
-        if (file.type === 'image/heic' || file.type === 'image/heif') return resolve(file);
+        // HEIC/HEIFの変換はブラウザ標準機能に依存するか、ライブラリが必要だが
+        // 簡易的にそのまま通す（サーバー側で弾かれる可能性はあるが、主要ブラウザはJPEG変換してアップロードすることが多い）
+        if (file.type === 'image/heic' || file.type === 'image/heif') {
+             // TODO: heic2any などのライブラリ導入を検討
+             return resolve(file);
+        }
 
         const img = new Image();
         const reader = new FileReader();
+        
         reader.onload = (e) => { img.src = e.target.result; };
         reader.onerror = (e) => reject(e);
+        
         reader.readAsDataURL(file);
 
         img.onload = () => {
             let width = img.width;
             let height = img.height;
-            if (width > maxWidth) {
-                height = Math.round((maxWidth / width) * height);
-                width = maxWidth;
+            
+            // アスペクト比を維持してリサイズ
+            if (width > maxWidth || height > maxWidth) {
+                if (width > height) {
+                    height = Math.round((maxWidth / width) * height);
+                    width = maxWidth;
+                } else {
+                    width = Math.round((maxWidth / height) * width);
+                    height = maxWidth;
+                }
             }
+
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
+            
+            // 高品質リサンプリングのための設定（ブラウザ依存）
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
             ctx.drawImage(img, 0, 0, width, height);
+            
+            // Blobに変換
             canvas.toBlob((blob) => {
                 if (!blob) return reject(new Error('Compression failed'));
-                const newName = file.name.replace(/\.[^.]+$/, '.jpg');
-                resolve(new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() }));
+                
+                // サイズチェック (2MBを超える場合は画質を落として再圧縮する簡易ロジック)
+                if (blob.size > 2 * 1024 * 1024) {
+                    canvas.toBlob((blob2) => {
+                        if(!blob2) return reject(new Error('Re-compression failed'));
+                        const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+                        resolve(new File([blob2], newName, { type: 'image/jpeg', lastModified: Date.now() }));
+                    }, 'image/jpeg', 0.8); // 画質を落とす
+                } else {
+                    const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+                    resolve(new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() }));
+                }
             }, 'image/jpeg', quality);
         };
         img.onerror = (e) => reject(e);
     });
 }
-// ★ initCamera, recordVideo は削除 (ネイティブカメラ利用のため不要)

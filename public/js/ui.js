@@ -72,10 +72,12 @@ export function displayDiagnosisResult(result) {
 
 /**
  * AI提案結果 (Phase 5) を画面に表示する
+ * ★ 修正: hasInspirationImage 引数を追加し、ご希望カードを表示
  * @param {object} proposal - 提案オブジェクト
  * @param {function} onProposalClick - 提案カードクリック時のハンドラ
+ * @param {boolean} hasInspirationImage - ご希望写真があるかどうか
  */
-export function displayProposalResult(proposal, onProposalClick) {
+export function displayProposalResult(proposal, onProposalClick, hasInspirationImage = false) {
     const containers = {
         hairstyle: document.getElementById('hairstyle-proposal'),
         haircolor: document.getElementById('haircolor-proposal'),
@@ -89,38 +91,63 @@ export function displayProposalResult(proposal, onProposalClick) {
 
     if (!proposal) return;
 
+    // 共通のカード作成ヘルパー
+    const createCard = (type, key, title, desc, isSelected = false) => {
+        const card = document.createElement('div');
+        card.className = 'proposal-card';
+        if (isSelected) card.classList.add('selected');
+        
+        card.dataset.type = type;
+        card.dataset.key = key;
+        card.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${desc}</p>`; 
+        card.addEventListener('click', onProposalClick);
+        return card;
+    };
+
     // 1. ヘアスタイル提案
     if (proposal.hairstyles && containers.hairstyle) {
         Object.entries(proposal.hairstyles).forEach(([key, style]) => {
-            const card = document.createElement('div');
-            card.className = 'proposal-card';
-            // 初期選択状態 (style1を選択済みにする例)
-            if (key === 'style1') card.classList.add('selected');
-            
-            card.dataset.type = 'hairstyle';
-            card.dataset.key = key;
-            card.innerHTML = `<strong>${escapeHtml(style.name)}</strong><p>${escapeHtml(style.description)}</p>`;
-            card.addEventListener('click', onProposalClick);
+            const card = createCard('hairstyle', key, style.name, escapeHtml(style.description), key === 'style1');
             containers.hairstyle.appendChild(card);
         });
+        
+        // ★ 追加: ご希望スタイルボタン
+        if (hasInspirationImage) {
+            const card = createCard(
+                'hairstyle', 
+                'user_request', 
+                '★ ご希望のヘアスタイル', 
+                'アップロードされた写真を参考に再現します。'
+            );
+            // 特別なスタイルを適用
+            card.style.borderStyle = 'dashed';
+            card.style.borderColor = 'var(--primary-color-dark)';
+            containers.hairstyle.appendChild(card);
+        }
     }
+
     // 2. ヘアカラー提案
     if (proposal.haircolors && containers.haircolor) {
         Object.entries(proposal.haircolors).forEach(([key, color]) => {
-            const card = document.createElement('div');
-            card.className = 'proposal-card';
-            // 初期選択状態
-            if (key === 'color1') card.classList.add('selected');
-
-            card.dataset.type = 'haircolor';
-            card.dataset.key = key;
-            // description と recommendedLevel を表示
             const recLevel = color.recommendedLevel ? `<br><small>推奨: ${escapeHtml(color.recommendedLevel)}</small>` : '';
-            card.innerHTML = `<strong>${escapeHtml(color.name)}</strong><p>${escapeHtml(color.description)}${recLevel}</p>`;
-            card.addEventListener('click', onProposalClick);
+            const card = createCard('haircolor', key, color.name, escapeHtml(color.description) + recLevel, key === 'color1');
             containers.haircolor.appendChild(card);
         });
+
+        // ★ 追加: ご希望カラーボタン
+        if (hasInspirationImage) {
+            const card = createCard(
+                'haircolor', 
+                'user_request', 
+                '★ ご希望のヘアカラー', 
+                'アップロードされた写真を参考に再現します。'
+            );
+            card.style.borderStyle = 'dashed';
+            card.style.borderColor = 'var(--primary-color-dark)';
+            containers.haircolor.appendChild(card);
+        }
     }
+
     // 3. ベストカラー (スウォッチ表示)
     if (proposal.bestColors && containers.bestColors) {
         Object.values(proposal.bestColors).forEach(color => {
@@ -205,13 +232,17 @@ export function updateCaptureLoadingText(element, text) {
 }
 
 /**
- * 生成された画像 (Base64) を表示する
+ * 生成された画像 (Base64) と説明テキストを表示する
  * @param {string} base64Data - 画像のBase64データ
  * @param {string} mimeType - MIMEタイプ (例: 'image/png')
+ * @param {string} styleName - ヘアスタイル名
+ * @param {string} colorName - ヘアカラー名
+ * @param {string} toneLevel - トーンレベル (例: "Tone 9")
  */
-export function displayGeneratedImage(base64Data, mimeType) {
+export function displayGeneratedImage(base64Data, mimeType, styleName, colorName, toneLevel) {
     const generatedImage = document.getElementById('generated-image');
     const generatedImageContainer = document.querySelector('.generated-image-container');
+    const descriptionEl = document.getElementById('generated-image-description'); // ★追加
     const saveButton = document.getElementById('save-generated-image-to-db-btn');
     
     if (generatedImage) {
@@ -223,9 +254,59 @@ export function displayGeneratedImage(base64Data, mimeType) {
             generatedImageContainer.style.display = 'block';
         }
     }
+
+    // ★追加: 説明テキストの更新
+    if (descriptionEl) {
+        // トーンの表示形式を整形 (例: "Tone 9" -> "9トーン")
+        const toneDisplay = toneLevel ? toneLevel.replace('Tone ', '') + 'トーン' : 'AI推奨トーン';
+        
+        // テキストを生成: 例「センターパートアップバング ✖ 9トーン の オリーブブラウン」
+        const text = `${styleName || 'スタイル'} ✖ ${toneDisplay} の ${colorName || 'カラー'}`;
+        
+        descriptionEl.textContent = text;
+        descriptionEl.style.fontWeight = 'bold'; 
+        descriptionEl.style.color = 'var(--dark-color)';
+    }
     
     if (saveButton) {
         saveButton.disabled = false;
         saveButton.classList.remove('btn-disabled');
     }
+}
+
+/**
+ * カスタムモーダルを表示する
+ * @param {string} title - タイトル
+ * @param {string} message - メッセージ本文
+ * @param {function} onOk - OKボタンクリック時のコールバック (任意)
+ */
+export function showModal(title, message, onOk = null) {
+    const modal = document.getElementById('custom-modal');
+    const titleEl = document.getElementById('modal-title');
+    const messageEl = document.getElementById('modal-message');
+    const okBtn = document.getElementById('modal-ok-btn');
+
+    if (!modal || !titleEl || !messageEl || !okBtn) return;
+
+    titleEl.textContent = title || "お知らせ";
+    messageEl.textContent = message || "";
+
+    // ボタンのイベントリスナーをリセット（複製防止）
+    const newOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+    newOkBtn.addEventListener('click', () => {
+        hideModal();
+        if (onOk) onOk();
+    });
+
+    modal.classList.add('active');
+}
+
+/**
+ * カスタムモーダルを非表示にする
+ */
+export function hideModal() {
+    const modal = document.getElementById('custom-modal');
+    if (modal) modal.classList.remove('active');
 }

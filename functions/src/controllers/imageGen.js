@@ -63,7 +63,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
 
   // 2. リクエストデータの取得
   const {
-    originalImageUrl, // 顧客の正面写真URL
+    originalImageUrl, 
     firebaseUid,
     hairstyleName,
     hairstyleDesc,
@@ -71,23 +71,24 @@ async function generateHairstyleImageController(req, res, dependencies) {
     haircolorDesc,
     recommendedLevel,
     currentLevel,
-    // ★ ロードマップ 2-1 (カウンセリング機能) 対応
-    userRequestsText, // (例: 赤みが出ないように)
-    inspirationImageUrl, // (任意) ご希望写真URL
+    userRequestsText, 
+    inspirationImageUrl, 
+    isUserStyle, 
+    isUserColor,
+    hasToneOverride // ★ 追加
   } = req.body;
 
-  if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !recommendedLevel || !currentLevel) {
+  if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !currentLevel) {
     logger.error("[generateHairstyleImage] Bad Request: Missing required data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data (originalImageUrl, firebaseUid, hairstyleName, haircolorName, recommendedLevel, currentLevel)."});
+    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
   }
 
   logger.info(`[generateHairstyleImage] Received request for user: ${firebaseUid}`);
 
-  // 4. Gemini API リクエストペイロードの作成 (Nano-banana / Inpainting)
+  // 4. Gemini API リクエストペイロードの作成
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
-  // ★ 外部モジュールからプロンプトを取得
-  // ★ ロードマップ 2-1 (カウンセリング機能) 対応: userRequestsText, inspirationImageUrl を渡す
+  // ★ プロンプト生成関数へフラグを渡す
   const prompt = getGenerationPrompt({
     hairstyleName,
     hairstyleDesc,
@@ -97,6 +98,9 @@ async function generateHairstyleImageController(req, res, dependencies) {
     currentLevel,
     userRequestsText: userRequestsText || "",
     hasInspirationImage: !!inspirationImageUrl,
+    isUserStyle: !!isUserStyle,
+    isUserColor: !!isUserColor,
+    hasToneOverride: !!hasToneOverride // ★ 追加
   });
 
   const payload = {
@@ -146,7 +150,6 @@ async function generateHairstyleImageController(req, res, dependencies) {
 
     logger.info("[generateHairstyleImage] Gemini API request successful. Image generated.");
 
-    // ★ 修正: 成功レスポンスとしてBase64データを直接返す
     return res.status(200).json({
       message: "Image generated successfully.",
       imageBase64: generatedBase64,
@@ -158,19 +161,10 @@ async function generateHairstyleImageController(req, res, dependencies) {
   }
 }
 
-
-/**
- * 画像微調整リクエストのメインコントローラー
- * @param {object} req - Expressリクエストオブジェクト
- * @param {object} res - Expressレスポンスオブジェクト
- * @param {object} dependencies - 依存関係
- * @param {object} dependencies.imageGenApiKey - APIキー(Secret)
- * @param {object} dependencies.storage - Firebase Storage サービス
- */
+// (refineHairstyleImageController は変更なしのため省略、ファイル内には含める)
 async function refineHairstyleImageController(req, res, dependencies) {
   const { imageGenApiKey, storage } = dependencies;
-
-  // 1. メソッドとAPIキーのチェック
+  // ... (既存コード)
   if (req.method !== "POST") {
     logger.warn(`[refineHairstyleImage] Method Not Allowed: ${req.method}`);
     return res.status(405).json({error: "Method Not Allowed"});
@@ -184,19 +178,19 @@ async function refineHairstyleImageController(req, res, dependencies) {
 
   // 2. リクエストデータの取得
   const {
-    generatedImageUrl, // ★注意: これは "data:image/png;base64,..." のデータURL
+    generatedImageUrl, 
     firebaseUid,
-    refinementText, // ★注意: 微調整プロンプト
+    refinementText,
   } = req.body;
 
   if (!generatedImageUrl || !firebaseUid || !refinementText) {
     logger.error("[refineHairstyleImage] Bad Request: Missing data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data (generatedImageUrl, firebaseUid, refinementText)."});
+    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
   }
 
   logger.info(`[refineHairstyleImage] Received request for user: ${firebaseUid}. Text: ${refinementText}`);
 
-  // 3. 画像データの取得 (★データURLからBase64とMIMEタイプを抽出★)
+  // 3. 画像データの取得
   let imageBase64;
   let imageMimeType;
   try {
@@ -206,16 +200,13 @@ async function refineHairstyleImageController(req, res, dependencies) {
     }
     imageMimeType = match[1];
     imageBase64 = match[2];
-    logger.info(`[refineHairstyleImage] Image data extracted from Data URL. MimeType: ${imageMimeType}`);
   } catch (fetchError) {
     logger.error("[refineHairstyleImage] Failed to parse Data URL:", fetchError);
     return res.status(500).json({error: "Image Parse Error", message: `画像データの解析に失敗しました: ${fetchError.message}`});
   }
 
-  // 4. Gemini API リクエストペイロードの作成 (Image-to-Image Edit)
+  // 4. Gemini API リクエストペイロードの作成
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
-
-  // ★ 外部モジュールからプロンプトを取得
   const prompt = getRefinementPrompt(refinementText);
 
   const payload = {
@@ -225,7 +216,7 @@ async function refineHairstyleImageController(req, res, dependencies) {
         parts: [
           {text: prompt},
           {
-            inlineData: { // ★ベース画像（前回生成した画像）
+            inlineData: {
               mimeType: imageMimeType,
               data: imageBase64,
             },
@@ -238,12 +229,12 @@ async function refineHairstyleImageController(req, res, dependencies) {
     },
   };
 
-  // 5. API呼び出し（リトライ処理付き）
+  // 5. API呼び出し
   try {
     const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, 3);
     const imagePart = aiResponse?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
     const generatedBase64 = imagePart?.inlineData?.data;
-    const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png"; // デフォルト
+    const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png";
 
     if (!generatedBase64) {
       logger.error("[refineHairstyleImage] No image data found in Gemini response.", {response: aiResponse});
@@ -252,7 +243,6 @@ async function refineHairstyleImageController(req, res, dependencies) {
 
     logger.info("[refineHairstyleImage] Gemini API request successful. Image refined.");
 
-    // ★ 修正: 成功レスポンスとしてBase64データを直接返す
     return res.status(200).json({
       message: "Image refined successfully.",
       imageBase64: generatedBase64,

@@ -80,7 +80,8 @@ export const appState = {
     // 提案に対するユーザーの選択状態
     selectedProposal: {
         hairstyle: 'style1', // style1 or style2
-        haircolor: 'color1'  // color1 or color2
+        haircolor: 'color1', // color1 or color2
+        hairTone: ''         // ★追加: 選択されたトーン (例: "Tone 7")
     },
     
     // 6. 生成画像データ (フェーズ6)

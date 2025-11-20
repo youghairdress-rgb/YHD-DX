@@ -160,7 +160,7 @@
      <!-- Phase 4: Diagnosis Result -->
     <div id="phase4" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AI診断結果</h2>
+             <h2 class="form-title">AI Diagnosis</h2>
              
              <div class="result-section">
                  <h3 class="result-title"><img src="images/顔診断.png" alt="" class="result-icon"> お顔の特徴</h3>
@@ -187,7 +187,7 @@
      <!-- Phase 5: Proposal -->
     <div id="phase5" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AIパーソナル提案</h2>
+             <h2 class="form-title">AI Style Proposal</h2>
              
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> 似合うヘアスタイル</h3>
@@ -201,6 +201,28 @@
 
                  <!-- JSでここに「ご希望カラー」カードが追加される -->
              </div>
+
+             <!-- ★★★ 新規追加: トーン選択セクション ★★★ -->
+             <div class="proposal-section" id="tone-selection-section">
+                 <h3 class="proposal-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 明るさ（トーン）の選択</h3>
+                 <p class="description" style="margin-bottom: 10px; font-size: 14px; text-align: left;">
+                     ご希望の髪の明るさを選んでください。<br>
+                     <small>※選択しない場合は、AI提案の明るさが適用されます。</small>
+                 </p>
+                 <div class="form-group">
+                     <select id="hair-tone-select" class="form-control">
+                         <option value="">AIにお任せ (提案通り)</option>
+                         <option value="Tone 5">トーン 5: 自然な黒髪～暗めの栗色</option>
+                         <option value="Tone 7">トーン 7: やや暗めの茶色</option>
+                         <option value="Tone 9">トーン 9: 茶色～明るめの茶色</option>
+                         <option value="Tone 11">トーン 11: 明るい茶色～金髪に近い茶色</option>
+                         <option value="Tone 13">トーン 13: 明るい金髪</option>
+                         <option value="Tone 15">トーン 15: 非常に明るい金髪 (ブリーチ必須)</option>
+                         <option value="Tone 18">トーン 18: 白に近い金髪 (ホワイトブリーチ)</option>
+                     </select>
+                 </div>
+             </div>
+             <!-- ▲▲▲ ここまで ▲▲▲ -->
 
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/カラーパターン.png" alt="" class="proposal-icon"> 相性ベストカラー</h3>
@@ -235,14 +257,15 @@
     <!-- Phase 6: Generated Image -->
     <div id="phase6" class="phase-container">
          <div class="card">
-             <h2 class="form-title">ヘアスタイル合成結果</h2>
+             <h2 class="form-title">HairStyle Composite</h2>
              
              <div class="generated-image-container">
                  <img id="generated-image" src="https://placehold.co/300x300/e2e8f0/cbd5e1?text=Awaiting..." alt="合成されたヘアスタイル">
                  <div id="refinement-spinner" class="spinner" style="display: none;"></div>
              </div>
              
-             <p class="description">AIが生成した合成画像です。</p>
+             <!-- ★ 変更: IDを追加し、初期テキストを空またはプレースホルダーにする -->
+             <p id="generated-image-description" class="description">生成結果を表示します</p>
 
              <!-- ★★★ 修正: 微調整セクション ★★★ -->
              <div class="refinement-section">
@@ -267,7 +290,20 @@
          </div>
     </div>
 
-    <!-- ★★★ モーダル関連HTMLを削除しました ★★★ -->
+    <!-- ★★★ カスタムモーダル (共通) ★★★ -->
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">お知らせ</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-ok-btn" class="btn-primary modal-btn">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/main.js" type="module"></script> 
 </body>
