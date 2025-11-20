@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
-    <title>YHD AIパーソナル診断</title>
+    <title>YHD AI Diagnosis</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +61,7 @@
     <!-- Phase 2: Profile Input -->
     <div id="phase2" class="phase-container">
         <div class="card">
-            <h2 class="form-title">プロフィール入力</h2>
+            <h2 class="form-title">Profile</h2>
             <div class="form-group">
                 <label for="display-name">お名前</label>
                 <input type="text" id="display-name" class="form-control" readonly>
@@ -154,7 +154,7 @@
      <!-- Phase 4: Diagnosis Result -->
     <div id="phase4" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AI診断結果</h2>
+             <h2 class="form-title">AI Diagnosis</h2>
              
              <div class="result-section">
                  <h3 class="result-title"><img src="images/顔診断.png" alt="" class="result-icon"> お顔の特徴</h3>
@@ -181,7 +181,7 @@
      <!-- Phase 5: Proposal -->
     <div id="phase5" class="phase-container">
          <div class="card">
-             <h2 class="form-title">AIパーソナル提案</h2>
+             <h2 class="form-title">AI Style Proposal</h2>
              
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> 似合うヘアスタイル</h3>
@@ -191,8 +191,7 @@
                  <h3 class="proposal-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 似合うヘアカラー</h3>
                  <div id="haircolor-proposal" class="proposal-grid"></div>
              </div>
-             <!-- ★ トーン選択セクションはPhase 6へ移動のため削除 -->
-
+             
              <div class="proposal-section">
                  <h3 class="proposal-title"><img src="images/カラーパターン.png" alt="" class="proposal-icon"> 相性ベストカラー</h3>
                  <div id="best-colors-proposal" class="best-colors-grid"></div>
@@ -215,17 +214,17 @@
                  </div>
              </div>
              
-             <!-- ★ Phase 5の生成ボタンを「設定へ進む」ボタンに変更 -->
-             <button id="move-to-phase6-btn" class="btn-dark">画像生成の設定へ</button>
+             <!-- ★ 変更: 設定へ進むボタン -->
+             <button id="move-to-phase6-btn" class="btn-dark">合成画像を生成</button>
              <button id="save-phase5-btn" class="btn-secondary no-print">提案内容を画像で保存</button>
              <button id="back-to-diagnosis-btn" class="btn-secondary btn-secondary-white no-print">診断結果に戻る</button>
          </div>
     </div>
     
-    <!-- Phase 6: Setup & Generated Image -->
+    <!-- Phase 6: Generated Image -->
     <div id="phase6" class="phase-container">
          <div class="card">
-             <h2 class="form-title">画像生成シミュレーター</h2>
+             <h2 class="form-title">HairStyle Composite</h2>
 
              <!-- ★★★ 画像生成設定セクション (新規追加) ★★★ -->
              <div id="generation-config-section" class="refinement-section">
@@ -251,7 +250,7 @@
                      </select>
                  </div>
 
-                 <button id="generate-image-btn" class="btn-primary">合成画像を生成</button>
+                 <button id="generate-image-btn" class="btn-primary">Composite START</button>
              </div>
              
              <!-- 生成結果表示エリア -->
