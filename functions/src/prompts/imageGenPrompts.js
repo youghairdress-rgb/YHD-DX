@@ -2,175 +2,193 @@
  * src/prompts/imageGenPrompts.js
  *
  * 画像生成 (フェーズ6) のためのAIプロンプトを定義する
- * Phase 3-2 Update: 顔の保護強化、ライティング統合、質感向上のためのチューニング済み
- * + トーン選択機能対応
- * + Keep (スタイル/カラー維持) 機能対応
+ * Phase 4-0 Update: "Ultimate Stylist" Edition
+ * - 擬似LoRAアプローチによる髪質再現性の向上
+ * - Chain-of-Thought (思考の連鎖) による顔・光・髪の完全な統合
+ * - カメラレンズ仕様の指定による写実性の極限追求
  */
 
 /**
  * 最初の画像生成（インペインティング）用プロンプトを生成する
  * @param {object} data - リクエストデータ
- * @param {string} data.hairstyleName - スタイル名
- * @param {string} data.hairstyleDesc - スタイル説明
- * @param {string} data.haircolorName - カラー名
- * @param {string} data.haircolorDesc - カラー説明
- * @param {string} data.recommendedLevel - 推奨JHCAレベル (または指定トーン)
- * @param {string} data.currentLevel - 現在のJHCAレベル
- * @param {string} data.userRequestsText - 顧客の要望 (任意)
- * @param {boolean} data.hasInspirationImage - ご希望写真の有無
- * @param {boolean} data.isUserStyle - ご希望スタイル優先フラグ
- * @param {boolean} data.isUserColor - ご希望カラー優先フラグ
- * @param {boolean} data.hasToneOverride - トーン指定上書きフラグ
- * @param {boolean} data.keepStyle - スタイル維持フラグ
- * @param {boolean} data.keepColor - カラー維持フラグ
- * @return {string} - Gemini API に渡すプロンプト
+ * ... (引数は前回と同じ)
  */
 function getGenerationPrompt(data) {
   const {
     hairstyleName, hairstyleDesc, haircolorName, haircolorDesc,
     recommendedLevel, currentLevel, userRequestsText, hasInspirationImage,
     isUserStyle, isUserColor, hasToneOverride,
-    keepStyle, keepColor
+    keepStyle, keepColor,
+    analysisData // ★ 追加: 画像分析データ
   } = data;
 
-  // ユーザーの要望テキスト
+  // 分析データのデフォルト値（万が一取得できなかった場合）
+  const gender = analysisData?.gender || "Person";
+  const age = analysisData?.age || "20s";
+  const features = analysisData?.features || "Natural features";
+  const faceShape = analysisData?.faceShape || "Oval";
+
+  // ユーザー要望
   const requestPromptPart = userRequestsText
     ? `
-**USER REQUEST (Highest Priority):**
+**PRIORITY USER REQUEST:**
 "${userRequestsText}"
-(Ensure this specific request is reflected in the final look, overriding defaults if necessary.)
+(This instruction overrides standard style defaults. Execute with precision.)
 `
     : "";
 
-  // ご希望写真
+  // 参考画像 (Inspiration) - 分析指示を強化
   const inspirationPromptPart = hasInspirationImage
     ? `
-**STYLE REFERENCE IMAGE:**
-[The 2nd image attached is the user's desired style reference]
-- This reference image is CRITICAL. Use it as the ground truth for style/color details.
+**REFERENCE IMAGE ANALYSIS (Image 2):**
+- **Task:** Analyze the reference image (Image 2) for:
+  1. Hair Texture (Smooth, Matte, Glossy, Frizzy?)
+  2. Hair Density & Volume distribution
+  3. Exact Color Nuance (Underlying pigments)
+- **Action:** TRANSFER these exact physical properties to the user in the Base Image (Image 1).
 `
     : "";
 
-  // --- スタイル指定ロジック ---
+  // --- スタイル指定ロジック (構造定義) ---
   let styleInstruction;
   if (keepStyle) {
     styleInstruction = `
-- **Style Name:** Current Style (KEEP)
-- **Style Description:** **DO NOT CHANGE THE HAIRSTYLE.**
-  - Maintain the user's original hair length, silhouette, and texture EXACTLY as they are in the Base Image.
-  - Only modify the hair color if instructed.
+- **Style Goal:** MAINTAIN CURRENT FORM
+- **Structural Rules:**
+  - Freeze the silhouette, length, and layering of the user's hair.
+  - Do NOT alter the geometry of the hairstyle.
+  - Only modify surface properties (color/texture) as requested.
 `;
   } else if (isUserStyle && hasInspirationImage) {
     styleInstruction = `
-- **Style Name:** User's Desired Style
-- **Style Description:** **STRICTLY COPY THE HAIRSTYLE SILHOUETTE, LENGTH, AND TEXTURE FROM THE REFERENCE IMAGE (Image 2).**
-  - Ignore any other style descriptions.
-  - Apply the exact hairstyle from Image 2 to the user in Image 1, adjusting naturally for head shape.
+- **Style Goal:** REPLICATE REFERENCE STYLE
+- **Structural Rules:**
+  - Clone the silhouette and form from Image 2.
+  - Morph the reference style to fit the user's cranial structure naturally.
+  - Ensure the hair falls physically correctly around the user's specific face shape.
 `;
   } else {
     styleInstruction = `
-- **Style Name:** ${hairstyleName}
-- **Style Description:** ${hairstyleDesc}
+- **Style Goal:** CREATE NEW STYLE (${hairstyleName})
+- **Structural Rules:**
+  - Design: ${hairstyleDesc}
+  - Physique: Adjust volume and length to compliment the user's face shape.
 `;
   }
 
-  // --- カラー指定ロジック ---
+  // --- カラー指定ロジック (色彩物理定義) ---
   let colorInstruction;
-  // 明るさ指定テキスト
-  const toneInstruction = hasToneOverride 
-      ? `**IMPORTANT:** The user has explicitly selected **${recommendedLevel}**. You MUST adjust the brightness to match this specific tone level strictly, regardless of the color name.`
-      : `**Target Brightness:** ${recommendedLevel} (JHCA Level Scale)\n  - *Logic:* Transform from current ${currentLevel} to ${recommendedLevel}.`;
+  // トーン（明度）の物理定義
+  const toneInstruction = hasToneOverride
+    ? `**Luminance Target:** JHCA Level ${recommendedLevel} (Strictly adhere to this brightness value).`
+    : `**Luminance Target:** Transform from current ${currentLevel} to target ${recommendedLevel}.`;
 
   if (keepColor) {
-    // カラー維持の場合
-    // トーン指定がある場合は、今の色味で明るさだけ変える
     if (hasToneOverride) {
-         colorInstruction = `
-- **Color Name:** Current Color (Brightness Adjusted)
-- **Color Description:** Keep the original hue and saturation of the user's hair from the Base Image, BUT adjust the **brightness** to match **${recommendedLevel}**.
+      colorInstruction = `
+- **Color Definition:** ORIGINAL HUE + ADJUSTED LUMINANCE
+- **Pigment Rules:** Retain the original melanin/dye pigments. ONLY shift the exposure/brightness to match Level ${recommendedLevel}.
 `;
     } else {
-         colorInstruction = `
-- **Color Name:** Current Color (KEEP)
-- **Color Description:** **DO NOT CHANGE THE HAIR COLOR.**
-  - Maintain the user's original hair color (hue, saturation, brightness) EXACTLY as it is in the Base Image.
+      colorInstruction = `
+- **Color Definition:** PRESERVE ORIGINAL COLOR
+- **Pigment Rules:** Do NOT shift hue, saturation, or brightness. Keep the hair color exactly as seen in Base Image.
 `;
     }
   } else if (isUserColor && hasInspirationImage && !hasToneOverride) {
-      // ご希望カラーかつトーン指定なし -> 写真を完全コピー
-      colorInstruction = `
-- **Color Name:** User's Desired Color
-- **Color Description:** **STRICTLY COPY THE HAIR COLOR FROM THE REFERENCE IMAGE (Image 2).**
-  - Match the hue, saturation, and brightness of the hair in Image 2.
+    colorInstruction = `
+- **Color Definition:** CLONE REFERENCE COLOR
+- **Pigment Rules:** Extract RGB/CMYK profile from Image 2's hair and map it to the user's hair in Image 1.
 `;
   } else if (isUserColor && hasInspirationImage && hasToneOverride) {
-      // ご希望カラーかつトーン指定あり -> 色味は写真、明るさはトーン指定
-      colorInstruction = `
-- **Color Name:** User's Desired Color (Modified Brightness)
-- **Color Description:** Extract the *hue/saturation* (color shade) from the REFERENCE IMAGE (Image 2), but adjust the *brightness* to match **${recommendedLevel}**.
+    colorInstruction = `
+- **Color Definition:** REFERENCE HUE + TARGET LUMINANCE
+- **Pigment Rules:** Extract the Hue/Saturation from Image 2, but force the Brightness to match Level ${recommendedLevel}.
 `;
   } else {
-      // AI提案カラー (またはトーン指定のみ)
-      colorInstruction = `
-- **Color Name:** ${haircolorName}
-- **Color Description:** ${haircolorDesc}
+    colorInstruction = `
+- **Color Definition:** ${haircolorName}
+- **Pigment Rules:** ${haircolorDesc}
 - ${toneInstruction}
 `;
   }
 
   return `
-You are an expert AI Hair Stylist and Professional Photo Retoucher.
-Your task is to perform high-precision **Virtual Hair Makeover (Inpainting)**.
+You are the world's leading AI Hair Stylist and a VFX Artist specializing in Digital Human Compositing.
+Your goal is to perform a **Seamless Hair Inpainting Operation**.
+
+**SUBJECT PROFILE (Analyzed from Base Image):**
+- **Gender:** ${gender}
+- **Age Estimate:** ${age}
+- **Face Shape:** ${faceShape}
+- **Key Features:** ${features}
+(★CRITICAL: You MUST generate a **${gender}** model matching this description. Do NOT generate the opposite gender.)
 
 **INPUT DATA:**
-- **Base Image:** [1st Image] User's original photo.
-- **Current Hair Brightness:** ${currentLevel} (Based on the detailed Tone Scale 1-18).
+- **Base Image context:** The Client is a ${gender}. Treat their face and head shape as the immutable canvas.
+- **Current State:** Hair Brightness Level ${currentLevel}.
 ${inspirationPromptPart}
 
-**EXECUTION GOAL:**
-Generate a photorealistic image where the user's hairstyle is completely transformed, while **preserving their facial identity with 100% accuracy**.
+**CHAIN OF THOUGHT (Step-by-Step Execution):**
+1.  **ANALYZE:** Scan Image 1 to map the user's face, skin tone, head orientation, and the scene's lighting environment (HDR map).
+2.  **MASK:** Mentally mask out the old hair region, strictly preserving the face (forehead, ears, jawline).
+3.  **SIMULATE:** Generate the new hairstyle structure (${hairstyleName}) as a 3D volume that respects gravity and the user's head shape.
+4.  **RENDER:** Apply the hair texture and color (${haircolorName}) with physically based rendering (PBR) to match the scene's lighting.
+5.  **COMPOSITE:** Blend the new hair onto the head with sub-pixel accuracy at the hairline.
 
-**STRICT CONSTRAINTS (Safety & Identity):**
-1.  **FACE PROTECTION IS ABSOLUTE:** Do NOT modify the user's eyes, nose, mouth, skin texture, or facial contours. The face must remain *pixel-perfectly* recognizable.
-2.  **NATURAL BLENDING:** The boundary between the face and the new hair (hairline, ears, neck) must be seamless. No jagged edges or blur.
-3.  **LIGHTING MATCH:** Analyze the lighting direction, intensity, and color temperature of the Base Image. Apply the *exact same lighting* to the new hair.
+**STRICT CONSTRAINTS (The "Iron Rules"):**
+1.  **IDENTITY PRESERVATION:** The face (eyes, nose, mouth, skin details, moles) MUST look like a ${gender}. 0% alteration allowed to facial features.
+2.  **PHYSICAL REALISM:** Hair must have weight, flow, and individual strands. No "helmet" hair.
+3.  **LIGHTING CONSISTENCY:** If the face is lit from the right, the hair highlights MUST be on the right. Shadows must match.
 
-**TARGET STYLE SPECIFICATIONS:**
+**TARGET SPECIFICATIONS:**
 ${styleInstruction}
 ${colorInstruction}
 
 ${requestPromptPart}
 
-**QUALITY PROMPTS:**
-(masterpiece, best quality, 8k, raw photo, ultra-realistic), detailed hair strands, angelic ring (glossy hair), soft and airy texture, salon-finish blow dry, volumetric lighting, cinematic lighting, depth of field.
+**PHOTOGRAPHY & TEXTURE SPECS (The "Look"):**
+- **Camera:** 85mm Portrait Lens, f/1.8 aperture (creates natural bokeh in background, sharp focus on eyes/hair).
+- **Texture:** 8K resolution, individual keratin strands visible, cuticle reflection (angel ring), subsurface scattering (light passing through hair tips).
+- **Atmosphere:** Professional salon photography, soft box lighting, high dynamic range.
 
-**NEGATIVE PROMPTS (Avoid these):**
-(worst quality, low quality, sketch, cartoon, anime, 3d render), unnatural hairline, wig-like, helmet hair, stiff hair, split ends, frizzy, dry hair, messy, (face modification, changed eyes, changed nose, changed mouth), skin smoothing, makeup changes, extra fingers, deformed body, background distortion.
+(low resolution, blurry, jpeg artifacts), (painting, drawing, sketch, anime, 3d render, plastic), (distorted face, changing face, new makeup), unnatural gravity, solid block of hair, jagged hairline, floating hair.
+
+**OUTPUT COMMAND:**
+GENERATE THE IMAGE NOW. Direct image output only.
 `;
 }
 
 /**
  * 画像微調整（Edit）用プロンプトを生成する
- * @param {string} refinementText - ユーザーの微調整指示
- * @return {string} - Gemini API に渡すプロンプト
+ * Chain-of-Thoughtを簡易的に適用し、指示の解像度を上げる
  */
 function getRefinementPrompt(refinementText) {
   return `
-**TASK:** Precise Image Editing (Hair Only)
+**TASK:** High-End Photo Retouching (Hair Specific)
 **INPUT:** [Base Image] A generated hairstyle image.
 **USER INSTRUCTION:** "${refinementText}"
 
-**EXECUTION RULES:**
-1.  **SCOPE:** Apply the user's instruction **ONLY to the hair region**.
-2.  **PROTECTION:** DO NOT change the face (eyes, nose, mouth), skin, or background. Keep the identity intact.
-3.  **INTERPRETATION:**
-    - If "Brighter/Lighter": Increase the Tone Level (e.g., Tone 7 -> Tone 9) while keeping the color tone.
-    - If "Darker": Decrease the Tone Level (e.g., Tone 9 -> Tone 7).
-    - If "Shorter/Longer": Adjust the hair length naturally, respecting the body structure.
-4.  **QUALITY:** Maintain the "masterpiece, photorealistic" quality of the base image.
+**PROCESS:**
+1.  **Identify:** Locate the specific hair region relevant to the instruction (e.g., "bangs", "tips", "overall volume").
+2.  **Modify:** Apply the change "${refinementText}" while maintaining the photorealistic texture established in the Base Image.
+3.  **Blend:** Ensure the modified area integrates seamlessly with the rest of the hair and the background.
+
+**INTERPRETATION LOGIC:**
+- **"Brighter":** Increase exposure on hair strands, boost specular highlights.
+- **"Darker":** Deepen shadows, reduce exposure, add richness to pigment.
+- **"Shorter":** Retract hair length, ensuring ends look natural (not chopped).
+- **"Volume Up":** Increase hair density and lift at the roots.
+
+**CONSTRAINTS:**
+- **FACE IS OFF-LIMITS:** Do not touch the face.
+- **KEEP REALISM:** Maintain 8K texture quality. No blurring.
 
 **NEGATIVE PROMPTS:**
-(face changed), (background changed), low quality, blurry, distorted, unnatural physics, artifacts.
+(face change), (blur), (loss of detail), (artificial look), (painting).
+
+**OUTPUT COMMAND:**
+GENERATE THE EDITED IMAGE NOW.
 `;
 }
 

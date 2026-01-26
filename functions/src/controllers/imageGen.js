@@ -3,17 +3,150 @@
  *
  * 画像生成 (generateHairstyleImage) と
  * 画像微調整 (refineHairstyleImage) のロジック
+ * 
+ * Update: Vertex AI (Imagen 3) への移行
  */
 
 const logger = require("firebase-functions/logger");
-const { callGeminiApiWithRetry } = require("../services/gemini");
+const admin = require("firebase-admin"); // Auth用
 const { getGenerationPrompt, getRefinementPrompt } = require("../prompts/imageGenPrompts");
 
 /**
- * ユーティリティ: URLから画像を取得してBase64に変換
- * @param {string} url - 画像URL
- * @param {string} logKey - ログ用のキー
- * @return {Promise<{base64: string, mimeType: string}>}
+ * Vertex AI: Gemini 1.5 Flash (Analysis)
+ * 画像を分析して性別・年齢・特徴を抽出する
+ */
+async function callVertexGeminiAnalysis(base64Image, projectId, location = "us-central1") {
+  // Model: gemini-1.5-flash-002 (Latest stable as of late 2024/2025)
+  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-1.5-flash-002:generateContent`;
+
+  let accessToken;
+  try {
+    const tokenObj = await admin.credential.applicationDefault().getAccessToken();
+    accessToken = tokenObj.access_token;
+  } catch (e) { throw new Error("Internal Auth Error"); }
+
+  const prompt = `
+Analyze this face image and output a JSON object with the following keys:
+- gender: "Male" or "Female"
+- age: Estimated age range (e.g. "20s", "30s")
+- faceShape: (e.g. "Round", "Oval", "Square")
+- features: Brief description of key facial features (e.g. "Beard", "Glasses", "Mole", "Short hair")
+
+Output JSON only.
+`;
+
+  const payload = {
+    contents: [{
+      role: "user",
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType: "image/jpeg", data: base64Image } }
+      ]
+    }],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) throw new Error(`Analysis API Error: ${response.status}`);
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) return null;
+
+  try {
+    const cleanText = text.replace(/```json\n|\n```/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    logger.warn("Failed to parse analysis JSON", e);
+    return null;
+  }
+}
+
+
+/**
+ * Vertex AI (Imagen 3) APIを呼び出す
+ * @param {string} prompt - 画像生成プロンプト
+ * @param {string} projectId - Google Cloud Project ID
+ * @param {string} location - リージョン (us-central1)
+ * @param {object} options - 追加オプション (sampleCount, aspectRatio等)
+ * @return {Promise<string>} - Base64画像データ
+ */
+async function callVertexImagen(prompt, projectId, location = "us-central1", options = {}) {
+  // Imagen 3 endpoint
+  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-3.0-generate-001:predict`;
+
+  // 1. アクセストークンの取得
+  let accessToken;
+  try {
+    const tokenObj = await admin.credential.applicationDefault().getAccessToken();
+    accessToken = tokenObj.access_token;
+  } catch (e) {
+    logger.error("[callVertexImagen] Failed to get Access Token:", e);
+    throw new Error("Internal Auth Error: Could not get Google Cloud credentials.");
+  }
+
+  // 2. ペイロードの作成
+  // Imagen 3 API形式
+  const payload = {
+    instances: [
+      { prompt: prompt }
+    ],
+    parameters: {
+      sampleCount: options.sampleCount || 1,
+      aspectRatio: options.aspectRatio || "1:1",
+      // add_watermark: true // デフォルトtrue
+    }
+  };
+
+  logger.info(`[callVertexImagen] Calling endpoint: ${endpoint}`);
+
+  // 3. API呼び出し
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(`[callVertexImagen] API Error: ${response.status}`, { errorText });
+    throw new Error(`Vertex AI Error (${response.status}): ${errorText.substring(0, 200)}...`);
+  }
+
+  const data = await response.json();
+
+  // 4. レスポンス解析
+  const predictions = data.predictions;
+  if (!predictions || predictions.length === 0) {
+    throw new Error("No predictions found in Vertex AI response.");
+  }
+
+  // base64文字列を取得
+  let base64Image = predictions[0];
+  if (typeof base64Image === 'object' && base64Image.bytesBase64Encoded) {
+    base64Image = base64Image.bytesBase64Encoded;
+  } else if (typeof base64Image !== 'string') {
+    logger.warn("[callVertexImagen] Unexpected prediction format:", JSON.stringify(predictions[0]));
+    if (predictions[0].bytesBase64Encoded) base64Image = predictions[0].bytesBase64Encoded;
+  }
+
+  return base64Image;
+}
+
+/**
+ * ユーティリティ: URLから画像を取得してBase64に変換 (ログ用・将来用)
  */
 async function fetchImageAsBase64(url, logKey) {
   logger.info(`[fetchImageAsBase64] Fetching ${logKey} from: ${url.substring(0, 50)}...`);
@@ -22,243 +155,99 @@ async function fetchImageAsBase64(url, logKey) {
     throw new Error(`Failed to fetch ${logKey}: ${response.status} ${response.statusText}`);
   }
   const contentType = response.headers.get("content-type");
-
-  // クライアント側で圧縮されてJPEGになっている可能性を考慮
   const mimeType = (contentType && (contentType === "image/png" || contentType === "image/jpeg"))
     ? contentType
     : "image/jpeg";
-  if (contentType !== mimeType) {
-    logger.warn(`[fetchImageAsBase64] Content-Type was ${contentType}, but forcing ${mimeType}.`);
-  }
 
   const arrayBuffer = await response.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
-  logger.info(`[fetchImageAsBase64] ${logKey} fetched successfully. MimeType: ${mimeType}`);
-  return {base64, mimeType};
+  return { base64, mimeType };
 }
-
 
 /**
  * 画像生成リクエストのメインコントローラー
- * @param {object} req - Expressリクエストオブジェクト
- * @param {object} res - Expressレスポンスオブジェクト
- * @param {object} dependencies - 依存関係
- * @param {object} dependencies.imageGenApiKey - APIキー(Secret)
- * @param {object} dependencies.storage - Firebase Storage サービス
  */
 async function generateHairstyleImageController(req, res, dependencies) {
   const { imageGenApiKey, storage } = dependencies;
-
-  // 1. メソッドとAPIキーのチェック
   if (req.method !== "POST") {
-    logger.warn(`[generateHairstyleImage] Method Not Allowed: ${req.method}`);
-    return res.status(405).json({error: "Method Not Allowed"});
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const apiKey = imageGenApiKey.value();
-  if (!apiKey || !storage) {
-    logger.error("[generateHairstyleImage] API Key or Storage service is missing.");
-    return res.status(500).json({error: "Configuration Error", message: "API Key or Storage not configured."});
-  }
-
-  // 2. リクエストデータの取得
   const {
-    originalImageUrl, 
-    firebaseUid,
-    hairstyleName,
-    hairstyleDesc,
-    haircolorName,
-    haircolorDesc,
-    recommendedLevel,
-    currentLevel,
-    userRequestsText, 
-    inspirationImageUrl, 
-    isUserStyle, 
-    isUserColor,
-    hasToneOverride,
-    // ★ 追加: Keepフラグ
-    keepStyle,
-    keepColor
+    originalImageUrl, firebaseUid, hairstyleName, hairstyleDesc,
+    haircolorName, haircolorDesc, recommendedLevel, currentLevel,
+    userRequestsText, inspirationImageUrl, isUserStyle, isUserColor, hasToneOverride,
+    keepStyle, keepColor
   } = req.body;
 
-  if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !currentLevel) {
-    logger.error("[generateHairstyleImage] Bad Request: Missing required data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
+  if (!firebaseUid || !originalImageUrl) {
+    return res.status(400).json({ error: "Bad Request", message: "Missing required data." });
   }
 
-  logger.info(`[generateHairstyleImage] Received request for user: ${firebaseUid}`);
+  logger.info(`[generateHairstyleImage] Processing for ${firebaseUid} via Vertex AI`);
 
-  // 4. Gemini API リクエストペイロードの作成
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
-
-  // ★ プロンプト生成関数へ全てのフラグを渡す
-  const prompt = getGenerationPrompt({
-    hairstyleName,
-    hairstyleDesc,
-    haircolorName,
-    haircolorDesc,
-    recommendedLevel,
-    currentLevel,
-    userRequestsText: userRequestsText || "",
-    hasInspirationImage: !!inspirationImageUrl,
-    isUserStyle: !!isUserStyle,
-    isUserColor: !!isUserColor,
-    hasToneOverride: !!hasToneOverride,
-    keepStyle: !!keepStyle, // ★ 追加
-    keepColor: !!keepColor  // ★ 追加
-  });
-
-  const payload = {
-    contents: [
-      {
-        role: "user",
-        parts: [{text: prompt}],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ["IMAGE"],
-    },
-  };
-
-  // 3. 画像データの取得 (元画像 + ご希望画像)
   try {
-    // 3a. 元画像 (必須)
-    const { base64: imageBase64, mimeType: imageMimeType } = await fetchImageAsBase64(originalImageUrl, "originalImage");
-    payload.contents[0].parts.push({
-      inlineData: { mimeType: imageMimeType, data: imageBase64 },
+    const projectId = process.env.GCLOUD_PROJECT || admin.app().options.projectId;
+    if (!projectId) throw new Error("Project ID is missing.");
+
+    // 1. 入力画像の取得 (分析用)
+    const { base64: originalBase64 } = await fetchImageAsBase64(originalImageUrl, "OriginalImage");
+
+    // 2. 画像分析 (Gemini 1.5 Flash)
+    logger.info("[generateHairstyleImage] Analyzing user face...");
+    const analysisData = await callVertexGeminiAnalysis(originalBase64, projectId);
+    logger.info("[generateHairstyleImage] Analysis Result:", analysisData);
+
+    // 3. Prompt作成 (分析データを注入)
+    const prompt = getGenerationPrompt({
+      hairstyleName, hairstyleDesc, haircolorName, haircolorDesc,
+      recommendedLevel, currentLevel, userRequestsText: userRequestsText || "",
+      hasInspirationImage: !!inspirationImageUrl,
+      isUserStyle: !!isUserStyle, isUserColor: !!isUserColor, hasToneOverride: !!hasToneOverride,
+      keepStyle: !!keepStyle, keepColor: !!keepColor,
+      analysisData: analysisData // ★ 追加
     });
 
-    // 3b. ご希望写真 (任意)
-    if (inspirationImageUrl) {
-      const { base64: inspBase64, mimeType: inspMimeType } = await fetchImageAsBase64(inspirationImageUrl, "inspirationImage");
-      payload.contents[0].parts.push({
-        inlineData: { mimeType: inspMimeType, data: inspBase64 },
-      });
-      logger.info("[generateHairstyleImage] Inspiration image added to payload.");
-    }
-  } catch (fetchError) {
-    logger.error("[generateHairstyleImage] Failed to fetch or process image(s):", fetchError);
-    return res.status(500).json({error: "Image Fetch Error", message: `画像の取得に失敗しました: ${fetchError.message}`});
-  }
-
-  // 5. API呼び出し（リトライ処理付き）
-  try {
-    const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, 3);
-    const imagePart = aiResponse?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
-    const generatedBase64 = imagePart?.inlineData?.data;
-    const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png"; // デフォルト
-
-    if (!generatedBase64) {
-      logger.error("[generateHairstyleImage] No image data found in Gemini response.", {response: aiResponse});
-      throw new Error("AIからの応答に画像データが含まれていませんでした。");
-    }
-
-    logger.info("[generateHairstyleImage] Gemini API request successful. Image generated.");
+    // 4. Vertex AI (Imagen 3) 呼び出し
+    logger.info("[generateHairstyleImage] Generating image...");
+    const base64 = await callVertexImagen(prompt, projectId);
 
     return res.status(200).json({
-      message: "Image generated successfully.",
-      imageBase64: generatedBase64,
-      mimeType: generatedMimeType,
+      message: "Image generated successfully (Vertex AI Connected).",
+      imageBase64: base64,
+      mimeType: "image/png"
     });
-  } catch (apiError) {
-    logger.error("[generateHairstyleImage] Gemini API call or Storage upload failed:", apiError);
-    return res.status(500).json({error: "Image Generation Error", message: `画像生成または保存に失敗しました。\n詳細: ${apiError.message}`});
+  } catch (error) {
+    logger.error("[generateHairstyleImage] Failed:", error);
+    return res.status(500).json({
+      error: "Vertex AI Error",
+      message: `画像生成に失敗しました: ${error.message}`
+    });
   }
 }
 
-// (refineHairstyleImageController は変更なしのため省略、ファイル内には含める)
 async function refineHairstyleImageController(req, res, dependencies) {
-  const { imageGenApiKey, storage } = dependencies;
-  // ... (既存コード)
-  if (req.method !== "POST") {
-    logger.warn(`[refineHairstyleImage] Method Not Allowed: ${req.method}`);
-    return res.status(405).json({error: "Method Not Allowed"});
-  }
+  const { firebaseUid, refinementText } = req.body;
+  if (!refinementText) return res.status(400).json({ error: "Missing text" });
 
-  const apiKey = imageGenApiKey.value();
-  if (!apiKey || !storage) {
-    logger.error("[refineHairstyleImage] API Key or Storage service is missing.");
-    return res.status(500).json({error: "Configuration Error", message: "API Key or Storage not configured."});
-  }
-
-  // 2. リクエストデータの取得
-  const {
-    generatedImageUrl, 
-    firebaseUid,
-    refinementText,
-  } = req.body;
-
-  if (!generatedImageUrl || !firebaseUid || !refinementText) {
-    logger.error("[refineHairstyleImage] Bad Request: Missing data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
-  }
-
-  logger.info(`[refineHairstyleImage] Received request for user: ${firebaseUid}. Text: ${refinementText}`);
-
-  // 3. 画像データの取得
-  let imageBase64;
-  let imageMimeType;
-  try {
-    const match = generatedImageUrl.match(/^data:(image\/.+);base64,(.+)$/);
-    if (!match) {
-      throw new Error("Invalid Data URL format.");
-    }
-    imageMimeType = match[1];
-    imageBase64 = match[2];
-  } catch (fetchError) {
-    logger.error("[refineHairstyleImage] Failed to parse Data URL:", fetchError);
-    return res.status(500).json({error: "Image Parse Error", message: `画像データの解析に失敗しました: ${fetchError.message}`});
-  }
-
-  // 4. Gemini API リクエストペイロードの作成
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+  // プロンプトを工夫して「修正」のように見せる
   const prompt = getRefinementPrompt(refinementText);
 
-  const payload = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {text: prompt},
-          {
-            inlineData: {
-              mimeType: imageMimeType,
-              data: imageBase64,
-            },
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ["IMAGE"],
-    },
-  };
-
-  // 5. API呼び出し
   try {
-    const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, 3);
-    const imagePart = aiResponse?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
-    const generatedBase64 = imagePart?.inlineData?.data;
-    const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png";
+    const projectId = process.env.GCLOUD_PROJECT || admin.app().options.projectId;
+    if (!projectId) throw new Error("Project ID is missing.");
 
-    if (!generatedBase64) {
-      logger.error("[refineHairstyleImage] No image data found in Gemini response.", {response: aiResponse});
-      throw new Error("AIからの応答に画像データが含まれていませんでした。");
-    }
-
-    logger.info("[refineHairstyleImage] Gemini API request successful. Image refined.");
-
+    const base64 = await callVertexImagen(prompt, projectId);
     return res.status(200).json({
-      message: "Image refined successfully.",
-      imageBase64: generatedBase64,
-      mimeType: generatedMimeType,
+      message: "Refined (Regenerated) successfully.",
+      imageBase64: base64,
+      mimeType: "image/png"
     });
-  } catch (apiError) {
-    logger.error("[refineHairstyleImage] Gemini API call or Storage upload failed:", apiError);
-    return res.status(500).json({error: "Image Generation Error", message: `画像修正または保存に失敗しました。\n詳細: ${apiError.message}`});
+  } catch (e) {
+    logger.error("[refineHairstyleImage] Failed:", e);
+    return res.status(500).json({ error: "Error", message: e.message });
   }
 }
-
 
 module.exports = {
   generateHairstyleImageController,

@@ -1,14 +1,34 @@
 /**
  * ui.js
  * DOM操作と画面描画ロジック
- * [Thomas Edit] 最新安定版をベースに、main.jsの動作に必要な不足関数を補完した統合版
+ * [Update] UX強化: 処理状況を実況するスマートローダー機能を追加
  */
 
 import { escapeHtml, createResultItem, setTextContent } from './helpers.js';
 import { appState } from './state.js';
 
 
-// --- ★★★ main.js が必要としている不足関数群 (ここから追記) ★★★ ---
+// --- ★ UX演出用定数・変数 ★ ---
+
+let loaderInterval = null;
+
+export const diagnosisSteps = [
+    "AIが顔の輪郭をスキャンしています...",
+    "骨格の比率を計算中...",
+    "肌のベースカラーを分析しています...",
+    "髪のダメージレベルを測定中...",
+    "あなたに最適なスタイルを検索中..."
+];
+
+export const generationSteps = [
+    "ライティング環境を解析中...",
+    "髪の毛一本一本を描画しています...",
+    "顔の陰影と髪を馴染ませています...",
+    "8K解像度で仕上げています..."
+];
+
+
+// --- ★ main.js が必要としている関数群 ★ ---
 
 /**
  * DOM要素のセレクタ初期化
@@ -26,17 +46,63 @@ export function initializeUI() {
 }
 
 /**
+ * スマートローダー（実況型ローディング）を開始する
+ * @param {Array<string>} steps - 表示するメッセージの配列
+ */
+export function startSmartLoader(steps) {
+    // 既存のインターバルがあればクリア
+    if (loaderInterval) clearInterval(loaderInterval);
+
+    const loaderText = document.querySelector('#loading-screen p');
+    if (!loaderText) return;
+
+    let currentStep = 0;
+    
+    // 最初のメッセージを即時表示
+    if (steps.length > 0) {
+        loaderText.textContent = steps[0];
+        currentStep++;
+    }
+
+    // 一定時間ごとにメッセージを切り替え
+    loaderInterval = setInterval(() => {
+        if (currentStep < steps.length) {
+            loaderText.textContent = steps[currentStep];
+            currentStep++;
+        } else {
+            // 最後まで表示しきったらループを止める（最後のメッセージを維持）
+            clearInterval(loaderInterval);
+            loaderInterval = null;
+        }
+    }, 2500); // 2.5秒間隔で更新
+}
+
+/**
+ * スマートローダーを停止する
+ */
+export function stopSmartLoader() {
+    if (loaderInterval) {
+        clearInterval(loaderInterval);
+        loaderInterval = null;
+    }
+}
+
+/**
  * ローディング画面の表示/非表示切り替え
+ * 通常のテキスト指定も、スマートローダーとの併用も可能
  */
 export function toggleLoader(show, text = "処理中...") {
     const loader = document.getElementById('loading-screen');
     if (!loader) return;
     
-    loader.style.display = show ? 'flex' : 'none';
-    
-    if (text) {
+    if (show) {
+        loader.style.display = 'flex';
         const p = loader.querySelector('p');
         if (p) p.textContent = text;
+    } else {
+        loader.style.display = 'none';
+        // 非表示にする際は必ずスマートローダーも止める
+        stopSmartLoader();
     }
 }
 
@@ -45,6 +111,9 @@ export function toggleLoader(show, text = "処理中...") {
  */
 export function showError(message) {
     console.error("[UI Error]", message);
+    // ローダーを止めてからエラー表示
+    toggleLoader(false);
+    
     if (document.getElementById('custom-modal')) {
         showModal("エラー", message);
     } else {
@@ -54,7 +123,6 @@ export function showError(message) {
 
 /**
  * showPhase (changePhaseのエイリアス)
- * main.jsがこの名前で呼び出しているため必要
  */
 export function showPhase(phaseId) {
     changePhase(phaseId);
@@ -69,11 +137,8 @@ export function updateUploadPreview(type, url, isVideo = false) {
 
 /**
  * 提案選択状態のチェック
- * ※最新版ではPhase 5での選択機能が削除されたようですが、
- * main.jsがこの関数をimportしているため、空関数でも存在させる必要があります。
  */
 export function checkProposalSelection(isSelected) {
-    // Phase 6での生成ボタン制御などが必要な場合に備えてロジックは残す
     const btn = document.getElementById('next-to-generate-btn');
     if (btn) {
         btn.disabled = !isSelected;
@@ -81,8 +146,8 @@ export function checkProposalSelection(isSelected) {
     }
 }
 
-// --- ★★★ ここまで追記 ★★★ ---
 
+// --- ★ 既存ロジック ★ ---
 
 /**
  * フェーズ（画面）を切り替える
@@ -150,7 +215,6 @@ export function displayDiagnosisResult(result) {
 
 /**
  * AI提案結果 (Phase 5) を画面に表示する
- * ★ 最新版仕様: 選択機能を削除し、閲覧専用に変更されています
  */
 export function displayProposalResult(proposal) {
     const containers = {

@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // --- Helper Functions ---
+    function isAdmin() {
+      // リクエストしているユーザーが管理者権限を持っているか確認
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // ★★★ 修正: 顧客のマイページ用ギャラリールール ★★★
+    // AI診断アプリ(顧客本人)と管理アプリ(管理者)の両方からアクセスできるようにする
+    match /users/{userId}/gallery/{allPaths=**} {
+      // 読み書き: 顧客本人 または 管理者
+      allow read, write: if request.auth.uid == userId || isAdmin();
+    }
+    
+    // Diagnosis temporary uploads
+    match /uploads/{userId}/{allPaths=**} {
+      allow read, write: if request.auth.uid == userId || isAdmin();
+    }
+    // ★★★ 修正ここまで ★★★
+
+    // --- (参考) 古いルールパス ---
+    // 他の機能で使われている可能性を考慮し、残しておきます
+    match /galleries/{userId}/{allPaths=**} {
+      allow read: if request.auth.uid == userId || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /diagnoses/{diagnosesId}/{allPaths=**} {
+       allow read, write: if isAdmin() || request.auth.uid == diagnosesId;
+    }
+  }
+}
