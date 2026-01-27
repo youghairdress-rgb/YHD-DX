@@ -188,20 +188,40 @@ async function requestDiagnosisController(req, res, dependencies) {
 function decodeHtmlEntities(str) {
   if (typeof str !== 'string') return str;
   return str
-    .replace(/&#x2F;/g, '/')
+    .replace(/&#x2f;/gi, '/') // Case insensitive &#x2F;
+    .replace(/&#47;/g, '/')   // Decimal &#47;
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    // Fallback: 汎用的なヘックスエンティティ
+    .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+    // Fallback: 汎用的なデシマルエンティティ
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+function decodeHtmlEntitiesLoop(str) {
+  let decoded = str;
+  let previous = "";
+  let count = 0;
+  // 最大5回までループして二重エスケープなどを解消
+  while (decoded !== previous && count < 5) {
+    previous = decoded;
+    decoded = decodeHtmlEntities(decoded);
+    count++;
+  }
+  return decoded;
 }
 
 /**
  * オブジェクト内の全文字列プロパティを再帰的にサニタイズする
  */
+// function sanitizeObject(obj) { // defined below
 function sanitizeObject(obj) {
   if (typeof obj === 'string') {
-    return decodeHtmlEntities(obj);
+    return decodeHtmlEntitiesLoop(obj);
   }
   if (Array.isArray(obj)) {
     return obj.map(item => sanitizeObject(item));
