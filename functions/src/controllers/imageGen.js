@@ -34,7 +34,7 @@ async function fetchImageAsBase64(url, logKey) {
   const arrayBuffer = await response.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
   logger.info(`[fetchImageAsBase64] ${logKey} fetched successfully. MimeType: ${mimeType}`);
-  return {base64, mimeType};
+  return { base64, mimeType };
 }
 
 
@@ -52,18 +52,18 @@ async function generateHairstyleImageController(req, res, dependencies) {
   // 1. メソッドとAPIキーのチェック
   if (req.method !== "POST") {
     logger.warn(`[generateHairstyleImage] Method Not Allowed: ${req.method}`);
-    return res.status(405).json({error: "Method Not Allowed"});
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   const apiKey = imageGenApiKey.value();
   if (!apiKey || !storage) {
     logger.error("[generateHairstyleImage] API Key or Storage service is missing.");
-    return res.status(500).json({error: "Configuration Error", message: "API Key or Storage not configured."});
+    return res.status(500).json({ error: "Configuration Error", message: "API Key or Storage not configured." });
   }
 
   // 2. リクエストデータの取得
   const {
-    originalImageUrl, 
+    originalImageUrl,
     firebaseUid,
     hairstyleName,
     hairstyleDesc,
@@ -71,9 +71,9 @@ async function generateHairstyleImageController(req, res, dependencies) {
     haircolorDesc,
     recommendedLevel,
     currentLevel,
-    userRequestsText, 
-    inspirationImageUrl, 
-    isUserStyle, 
+    userRequestsText,
+    inspirationImageUrl,
+    isUserStyle,
     isUserColor,
     hasToneOverride,
     // ★ 追加: Keepフラグ
@@ -82,14 +82,14 @@ async function generateHairstyleImageController(req, res, dependencies) {
   } = req.body;
 
   if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !currentLevel) {
-    logger.error("[generateHairstyleImage] Bad Request: Missing required data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
+    logger.error("[generateHairstyleImage] Bad Request: Missing required data.", { body: req.body });
+    return res.status(400).json({ error: "Bad Request", message: "Missing required data." });
   }
 
   logger.info(`[generateHairstyleImage] Received request for user: ${firebaseUid}`);
 
   // 4. Gemini API リクエストペイロードの作成
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
 
   // ★ プロンプト生成関数へ全てのフラグを渡す
   const prompt = getGenerationPrompt({
@@ -112,7 +112,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     contents: [
       {
         role: "user",
-        parts: [{text: prompt}],
+        parts: [{ text: prompt }],
       },
     ],
     generationConfig: {
@@ -138,7 +138,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     }
   } catch (fetchError) {
     logger.error("[generateHairstyleImage] Failed to fetch or process image(s):", fetchError);
-    return res.status(500).json({error: "Image Fetch Error", message: `画像の取得に失敗しました: ${fetchError.message}`});
+    return res.status(500).json({ error: "Image Fetch Error", message: `画像の取得に失敗しました: ${fetchError.message}` });
   }
 
   // 5. API呼び出し（リトライ処理付き）
@@ -149,7 +149,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png"; // デフォルト
 
     if (!generatedBase64) {
-      logger.error("[generateHairstyleImage] No image data found in Gemini response.", {response: aiResponse});
+      logger.error("[generateHairstyleImage] No image data found in Gemini response.", { response: aiResponse });
       throw new Error("AIからの応答に画像データが含まれていませんでした。");
     }
 
@@ -162,7 +162,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     });
   } catch (apiError) {
     logger.error("[generateHairstyleImage] Gemini API call or Storage upload failed:", apiError);
-    return res.status(500).json({error: "Image Generation Error", message: `画像生成または保存に失敗しました。\n詳細: ${apiError.message}`});
+    return res.status(500).json({ error: "Image Generation Error", message: `画像生成または保存に失敗しました。\n詳細: ${apiError.message}` });
   }
 }
 
@@ -172,25 +172,25 @@ async function refineHairstyleImageController(req, res, dependencies) {
   // ... (既存コード)
   if (req.method !== "POST") {
     logger.warn(`[refineHairstyleImage] Method Not Allowed: ${req.method}`);
-    return res.status(405).json({error: "Method Not Allowed"});
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   const apiKey = imageGenApiKey.value();
   if (!apiKey || !storage) {
     logger.error("[refineHairstyleImage] API Key or Storage service is missing.");
-    return res.status(500).json({error: "Configuration Error", message: "API Key or Storage not configured."});
+    return res.status(500).json({ error: "Configuration Error", message: "API Key or Storage not configured." });
   }
 
   // 2. リクエストデータの取得
   const {
-    generatedImageUrl, 
+    generatedImageUrl,
     firebaseUid,
     refinementText,
   } = req.body;
 
   if (!generatedImageUrl || !firebaseUid || !refinementText) {
-    logger.error("[refineHairstyleImage] Bad Request: Missing data.", {body: req.body});
-    return res.status(400).json({error: "Bad Request", message: "Missing required data."});
+    logger.error("[refineHairstyleImage] Bad Request: Missing data.", { body: req.body });
+    return res.status(400).json({ error: "Bad Request", message: "Missing required data." });
   }
 
   logger.info(`[refineHairstyleImage] Received request for user: ${firebaseUid}. Text: ${refinementText}`);
@@ -207,11 +207,11 @@ async function refineHairstyleImageController(req, res, dependencies) {
     imageBase64 = match[2];
   } catch (fetchError) {
     logger.error("[refineHairstyleImage] Failed to parse Data URL:", fetchError);
-    return res.status(500).json({error: "Image Parse Error", message: `画像データの解析に失敗しました: ${fetchError.message}`});
+    return res.status(500).json({ error: "Image Parse Error", message: `画像データの解析に失敗しました: ${fetchError.message}` });
   }
 
   // 4. Gemini API リクエストペイロードの作成
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
   const prompt = getRefinementPrompt(refinementText);
 
   const payload = {
@@ -219,7 +219,7 @@ async function refineHairstyleImageController(req, res, dependencies) {
       {
         role: "user",
         parts: [
-          {text: prompt},
+          { text: prompt },
           {
             inlineData: {
               mimeType: imageMimeType,
@@ -242,7 +242,7 @@ async function refineHairstyleImageController(req, res, dependencies) {
     const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png";
 
     if (!generatedBase64) {
-      logger.error("[refineHairstyleImage] No image data found in Gemini response.", {response: aiResponse});
+      logger.error("[refineHairstyleImage] No image data found in Gemini response.", { response: aiResponse });
       throw new Error("AIからの応答に画像データが含まれていませんでした。");
     }
 
@@ -255,7 +255,7 @@ async function refineHairstyleImageController(req, res, dependencies) {
     });
   } catch (apiError) {
     logger.error("[refineHairstyleImage] Gemini API call or Storage upload failed:", apiError);
-    return res.status(500).json({error: "Image Generation Error", message: `画像修正または保存に失敗しました。\n詳細: ${apiError.message}`});
+    return res.status(500).json({ error: "Image Generation Error", message: `画像修正または保存に失敗しました。\n詳細: ${apiError.message}` });
   }
 }
 

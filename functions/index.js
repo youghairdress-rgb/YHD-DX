@@ -9,7 +9,7 @@
 
 // Firebase SDK (Admin SDKの初期化は services/firebase.js で行う)
 const logger = require("firebase-functions/logger");
-const {defineSecret} = require("firebase-functions/params");
+const { defineSecret } = require("firebase-functions/params");
 
 // --- サービス・コントローラーのインポート ---
 // (src/services/firebase.js で admin.initializeApp() が実行される)
@@ -34,69 +34,86 @@ const corsOptions = {
 
 // --- 1. 診断リクエスト (フェーズ4) ---
 exports.requestDiagnosis = onRequest(
-    {
-      ...corsOptions,
-      secrets: [llmApiKey],
-      timeoutSeconds: 300, // 5分
-      memory: "2GiB",
-    },
-    async (req, res) => {
-      // 依存性を注入してコントローラーを呼び出す
-      await requestDiagnosisController(req, res, {
-        llmApiKey: llmApiKey,
-      });
-    },
+  {
+    ...corsOptions,
+    secrets: [llmApiKey],
+    timeoutSeconds: 300, // 5分
+    memory: "2GiB",
+  },
+  async (req, res) => {
+    // 依存性を注入してコントローラーを呼び出す
+    await requestDiagnosisController(req, res, {
+      llmApiKey: llmApiKey,
+    });
+  },
 );
 
 // --- 2. 画像生成リクエスト (フェーズ6) ---
 exports.generateHairstyleImage = onRequest(
-    {
-      ...corsOptions,
-      secrets: [imageGenApiKey],
-      timeoutSeconds: 300, // 5分
-    },
-    async (req, res) => {
-      // 依存性を注入してコントローラーを呼び出す
-      await generateHairstyleImageController(req, res, {
-        imageGenApiKey: imageGenApiKey,
-        storage: storage, // Firebase Storage サービス
-        defaultBucketName: defaultBucketName, // バケット名
-      });
-    },
+  {
+    ...corsOptions,
+    secrets: [imageGenApiKey],
+    timeoutSeconds: 300, // 5分
+  },
+  async (req, res) => {
+    // 依存性を注入してコントローラーを呼び出す
+    await generateHairstyleImageController(req, res, {
+      imageGenApiKey: imageGenApiKey,
+      storage: storage, // Firebase Storage サービス
+      defaultBucketName: defaultBucketName, // バケット名
+    });
+  },
 );
 
 // --- 3. 画像微調整リクエスト (フェーズ6) ---
 exports.refineHairstyleImage = onRequest(
-    {
-      ...corsOptions,
-      secrets: [imageGenApiKey],
-      timeoutSeconds: 300,
-    },
-    async (req, res) => {
-      // 依存性を注入してコントローラーを呼び出す
-      await refineHairstyleImageController(req, res, {
-        imageGenApiKey: imageGenApiKey,
-        storage: storage, // Firebase Storage サービス
-        defaultBucketName: defaultBucketName, // バケット名
-      });
-    },
+  {
+    ...corsOptions,
+    secrets: [imageGenApiKey],
+    timeoutSeconds: 300,
+  },
+  async (req, res) => {
+    // 依存性を注入してコントローラーを呼び出す
+    await refineHairstyleImageController(req, res, {
+      imageGenApiKey: imageGenApiKey,
+      storage: storage, // Firebase Storage サービス
+      defaultBucketName: defaultBucketName, // バケット名
+    });
+  },
 );
 
 // --- 4. 認証トークン生成 ---
 exports.createFirebaseCustomToken = onRequest(
-    {
-      ...corsOptions,
-      secrets: [], // シークレット不要
-    },
-    async (req, res) => {
-      // 依存性を注入してコントローラーを呼び出す
-      await createFirebaseCustomTokenController(req, res, {
-        auth: auth, // Firebase Auth サービス
-      });
-    },
+  {
+    ...corsOptions,
+    secrets: [], // シークレット不要
+  },
+  async (req, res) => {
+    // 依存性を注入してコントローラーを呼び出す
+    await createFirebaseCustomTokenController(req, res, {
+      auth: auth, // Firebase Auth サービス
+    });
+  },
 );
 
-// --- 5. 疎通確認用 ---
+// --- 5. トレンド分析 (システム管理用) ---
+exports.analyzeTrends = onRequest(
+  {
+    ...corsOptions,
+    secrets: [imageGenApiKey], // Gemini利用
+    timeoutSeconds: 540, // スクレイピングを含むため長めに (9分)
+    memory: "1GiB",
+  },
+  async (req, res) => {
+    // 遅延インポート (index.jsの起動速度への影響を避けるため)
+    const { analyzeTrendsController } = require("./src/controllers/trendAnalysis");
+    await analyzeTrendsController(req, res, {
+      imageGenApiKey: imageGenApiKey,
+    });
+  },
+);
+
+// --- 6. 疎通確認用 ---
 exports.helloWorld = onRequest(corsOptions, (req, res) => {
   logger.info("[helloWorld] Hello world endpoint called!");
   res.status(200).send("Hello from Firebase Functions v2 (Modularized)!");
