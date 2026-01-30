@@ -1,20 +1,16 @@
 /**
  * src/controllers/imageGen.js
  *
- * 画像生成 (generateHairstyleImage) と
- * 画像微調整 (refineHairstyleImage) のロジック
+ * ヘアスタイル画像生成コントローラー
+ * Vertex AI (Gemini 2.5 Flash Image Preview) を使用して、
+ * ユーザーの顔写真を維持したまま、指定された髪型・髪色に合成する。
  */
 
 const logger = require("firebase-functions/logger");
 const { callGeminiApiWithRetry } = require("../services/gemini");
 const { getGenerationPrompt, getRefinementPrompt } = require("../prompts/imageGenPrompts");
 
-/**
- * ユーティリティ: URLから画像を取得してBase64に変換
- * @param {string} url - 画像URL
- * @param {string} logKey - ログ用のキー
- * @return {Promise<{base64: string, mimeType: string}>}
- */
+// ユーティリティ: 画像URLからBase64を取得
 async function fetchImageAsBase64(url, logKey) {
   logger.info(`[fetchImageAsBase64] Fetching ${logKey} from: ${url.substring(0, 50)}...`);
   const response = await fetch(url);
@@ -22,24 +18,21 @@ async function fetchImageAsBase64(url, logKey) {
     throw new Error(`Failed to fetch ${logKey}: ${response.status} ${response.statusText}`);
   }
   const contentType = response.headers.get("content-type");
-
-  // クライアント側で圧縮されてJPEGになっている可能性を考慮
   const mimeType = (contentType && (contentType === "image/png" || contentType === "image/jpeg"))
     ? contentType
-    : "image/jpeg";
-  if (contentType !== mimeType) {
-    logger.warn(`[fetchImageAsBase64] Content-Type was ${contentType}, but forcing ${mimeType}.`);
-  }
+    : "image/jpeg"; // デフォルト
 
   const arrayBuffer = await response.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
+<<<<<<< HEAD
   logger.info(`[fetchImageAsBase64] ${logKey} fetched successfully. MimeType: ${mimeType}`);
+=======
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
   return { base64, mimeType };
 }
 
-
 /**
- * 画像生成リクエストのメインコントローラー
+ * ヘアスタイル生成のリクエストを処理する
  * @param {object} req - Expressリクエストオブジェクト
  * @param {object} res - Expressレスポンスオブジェクト
  * @param {object} dependencies - 依存関係
@@ -75,10 +68,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     inspirationImageUrl,
     isUserStyle,
     isUserColor,
-    hasToneOverride,
-    // ★ 追加: Keepフラグ
-    keepStyle,
-    keepColor
+    hasToneOverride
   } = req.body;
 
   if (!originalImageUrl || !firebaseUid || !hairstyleName || !haircolorName || !currentLevel) {
@@ -89,9 +79,13 @@ async function generateHairstyleImageController(req, res, dependencies) {
   logger.info(`[generateHairstyleImage] Received request for user: ${firebaseUid}`);
 
   // 4. Gemini API リクエストペイロードの作成
+<<<<<<< HEAD
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
+=======
+  // Model: gemini-2.5-flash-image-preview (Experimental/Preview model heavily optimized for image gen/edit)
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
 
-  // ★ プロンプト生成関数へ全てのフラグを渡す
   const prompt = getGenerationPrompt({
     hairstyleName,
     hairstyleDesc,
@@ -103,9 +97,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     hasInspirationImage: !!inspirationImageUrl,
     isUserStyle: !!isUserStyle,
     isUserColor: !!isUserColor,
-    hasToneOverride: !!hasToneOverride,
-    keepStyle: !!keepStyle, // ★ 追加
-    keepColor: !!keepColor  // ★ 追加
+    hasToneOverride: !!hasToneOverride
   });
 
   const payload = {
@@ -166,10 +158,12 @@ async function generateHairstyleImageController(req, res, dependencies) {
   }
 }
 
-// (refineHairstyleImageController は変更なしのため省略、ファイル内には含める)
+/**
+ * 生成された画像の微調整 (Refinement)
+ */
 async function refineHairstyleImageController(req, res, dependencies) {
   const { imageGenApiKey, storage } = dependencies;
-  // ... (既存コード)
+
   if (req.method !== "POST") {
     logger.warn(`[refineHairstyleImage] Method Not Allowed: ${req.method}`);
     return res.status(405).json({ error: "Method Not Allowed" });
@@ -258,7 +252,6 @@ async function refineHairstyleImageController(req, res, dependencies) {
     return res.status(500).json({ error: "Image Generation Error", message: `画像修正または保存に失敗しました。\n詳細: ${apiError.message}` });
   }
 }
-
 
 module.exports = {
   generateHairstyleImageController,

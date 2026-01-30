@@ -195,11 +195,71 @@ async function requestDiagnosisController(req, res, dependencies) {
       throw new Error("AIの応答に必要なキー（currentLevel, recommendedLevelなど）が欠けています。");
     }
 
-    return res.status(200).json(parsedJson); // パースしたJSONを返す
+    // ★ HTMLエンティティの除去 (Sanitizer)
+    const sanitizedJson = sanitizeObject(parsedJson);
+
+    return res.status(200).json(sanitizedJson); // パース＆サニタイズしたJSONを返す
   } catch (apiError) {
     logger.error("[requestDiagnosis] Gemini API call failed:", apiError);
     return res.status(500).json({ error: "Gemini API Error", message: `AI診断リクエストの送信に失敗しました。\n詳細: ${apiError.message}` });
   }
+}
+
+/**
+ * 文字列内のHTMLエンティティをデコードする
+ * 特に &#x2F; (/) など、AIが生成しがちなものを対象とする
+ */
+function decodeHtmlEntities(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/&#x2f;/gi, '/') // Case insensitive &#x2F;
+    .replace(/&#47;/g, '/')   // Decimal &#47;
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    // Fallback: 汎用的なヘックスエンティティ
+    .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+    // Fallback: 汎用的なデシマルエンティティ
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+function decodeHtmlEntitiesLoop(str) {
+  let decoded = str;
+  let previous = "";
+  let count = 0;
+  // 最大5回までループして二重エスケープなどを解消
+  while (decoded !== previous && count < 5) {
+    previous = decoded;
+    decoded = decodeHtmlEntities(decoded);
+    count++;
+  }
+  return decoded;
+}
+
+/**
+ * オブジェクト内の全文字列プロパティを再帰的にサニタイズする
+ */
+// function sanitizeObject(obj) { // defined below
+function sanitizeObject(obj) {
+  if (typeof obj === 'string') {
+    return decodeHtmlEntitiesLoop(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeObject(item));
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const newObj = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        newObj[key] = sanitizeObject(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
 }
 
 module.exports = {

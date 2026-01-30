@@ -28,23 +28,40 @@ const AI_RESPONSE_SCHEMA = {
         "skeleton": {
           "type": "OBJECT",
           "properties": {
+<<<<<<< HEAD
             "neckLength": { "type": "STRING", "description": "首の長さ。補足説明を入れること (例: 標準(バランスが良い), 長め(すっきり見える))" },
             "faceShape": { "type": "STRING", "description": "顔の形。補足説明を入れること (例: ベース顔(エラ張り気味), 丸顔(曲線的))" },
             "bodyLine": { "type": "STRING", "description": "ボディライン。補足説明を入れること (例: ナチュラル(フレーム感が強い), ウェーブ(曲線的))" },
             "shoulderLine": { "type": "STRING", "description": "肩のライン。補足説明を入れること (例: いかり肩(直線的), なで肩(華奢))" },
             "faceStereoscopy": { "type": "STRING", "description": "顔の立体感。補足説明を入れること (例: 立体的(彫りが深い), 平面的(あっさりした顔立ち))" },
             "bodyTypeFeature": { "type": "STRING", "description": "体型の特徴。詳細な補足を入れること (例: 骨感が目立つ(ナチュラルタイプ), 上半身に厚みがある(ストレートタイプ))" },
+=======
+            "neckLength": { "type": "STRING", "description": "首の長さ (例: 長い, 短い, 標準)" },
+            "faceShape": { "type": "STRING", "description": "顔の形 (例: 丸顔, 面長, ベース顔, 卵型)" },
+            "bodyLine": { "type": "STRING", "description": "ボディライン (例: ストレート, ウェーブ, ナチュラル)" },
+            "shoulderLine": { "type": "STRING", "description": "肩のライン (例: なで肩, いかり肩, 標準)" },
+            "faceStereoscopy": { "type": "STRING", "description": "顔の立体感 (例: 立体的, 平面的, 標準)" },
+            "bodyTypeFeature": { "type": "STRING", "description": "体型の特徴 (例: 上重心(ストレートタイプ), 下重心(ウェーブタイプ), 骨感が目立つ(ナチュラルタイプ))" },
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
           },
           "required": ["neckLength", "faceShape", "bodyLine", "shoulderLine", "faceStereoscopy", "bodyTypeFeature"],
         },
         "personalColor": {
           "type": "OBJECT",
           "properties": {
+<<<<<<< HEAD
             "baseColor": { "type": "STRING", "description": "ベースカラー。補足説明を入れること (例: イエローベース(黄み寄り), ブルーベース(青み寄り))" },
             "season": { "type": "STRING", "description": "シーズン。補足説明を入れること (例: オータム(深みのある色が得意))" },
             "brightness": { "type": "STRING", "description": "明度。補足説明を入れること (例: 低明度(暗めの色が似合う))" },
             "saturation": { "type": "STRING", "description": "彩度。補足説明を入れること (例: 中彩度(穏やかな色が似合う))" },
             "eyeColor": { "type": "STRING", "description": "瞳の色。詳細に記述すること (例: 明るい茶色(透明感がある), 黒に近い焦げ茶(印象的))" },
+=======
+            "baseColor": { "type": "STRING", "description": "ベースカラー (例: イエローベース, ブルーベース)" },
+            "season": { "type": "STRING", "description": "シーズン (例: スプリング, サマー, オータム, ウィンター)" },
+            "brightness": { "type": "STRING", "description": "明度 (例: 高明度, 中明度, 低明度)" },
+            "saturation": { "type": "STRING", "description": "彩度 (例: 高彩度, 中彩度, 低彩度)" },
+            "eyeColor": { "type": "STRING", "description": "瞳の色 (例: 明るい茶色, 黒に近い焦げ茶)" },
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
           },
           "required": ["baseColor", "season", "brightness", "saturation", "eyeColor"],
         },
@@ -52,11 +69,19 @@ const AI_RESPONSE_SCHEMA = {
           "type": "OBJECT",
           "description": "写真（と将来の動画）から分析した現在の髪の状態",
           "properties": {
+<<<<<<< HEAD
             "quality": { "type": "STRING", "description": "髪質。補足説明を入れること (例: 硬い(ハリコシがある), 柔らかい(猫っ毛))" },
             "curlType": { "type": "STRING", "description": "クセ。補足説明を入れること (例: 直毛(扱いやすい), 波状毛(うねりがある))" },
             "damageLevel": { "type": "STRING", "description": "ダメージレベル。補足説明を入れること (例: 低(健康的でツヤがある), 中(毛先に乾燥が見られる))" },
             "volume": { "type": "STRING", "description": "毛量。補足説明を入れること (例: 多い(広がりやすい), 普通(適度))" },
             "currentLevel": { "type": "STRING", "description": "現在の明るさ (Tone表記)。色味の補足を入れること (例: Tone 7(落ち着いたブラウン))" },
+=======
+            "quality": { "type": "STRING", "description": "髪質 (例: 硬い, 柔らかい, 普通)" },
+            "curlType": { "type": "STRING", "description": "クセ (例: 直毛, 波状毛, 捻転毛)" },
+            "damageLevel": { "type": "STRING", "description": "ダメージレベル (例: 低(健康), 中(やや乾燥), 高(要ケア))" },
+            "volume": { "type": "STRING", "description": "毛量 (例: 多い, 普通, 少ない)" },
+            "currentLevel": { "type": "STRING", "description": "詳細なトーンレベルに基づく現在の明るさ (例: トーン7(ミディアムブラウン))" },
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
           },
           "required": ["quality", "curlType", "damageLevel", "volume", "currentLevel"],
         },
@@ -174,6 +199,7 @@ function getDiagnosisSystemPrompt(gender, userRequestsText = "", trendInfo = "")
 ## PRIORITY REQUEST
 **Client's Wish:** "${userRequestsText}"
 Integrate this wish into the diagnosis and proposal. If the wish contradicts the physical diagnosis (e.g., client wants a style not suitable for their bone structure), propose a compromise that respects both.
+<<<<<<< HEAD
 `
     : "";
 
@@ -184,11 +210,15 @@ Integrate this wish into the diagnosis and proposal. If the wish contradicts the
 **Current Market Trends:**
 ${trendInfo}
 **Instruction:** Incorporate these trends into the proposal (Proposal Logic -> Hair Color Strategy & Trend) where appropriate, ensuring the style feels modern and up-to-date.
+=======
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
 `
     : "";
 
+  // Output Requirements
   return `
 You are an **Expert Aesthetic Anatomist & Color Theory Specialist**.
+<<<<<<< HEAD
 Your task is to analyze the client's physical attributes from 5 media inputs (Front/Side/Back Photos & Videos) and gender (${gender}) to provide a highly precise diagnosis and styling proposal.
 
 ${requestPromptPart}
@@ -245,6 +275,32 @@ Do not guess. Deduce from visual evidence.
 Return the result strictly in the defined JSON schema.
 **Crucial:** The \`currentLevel\` and \`recommendedLevel\` fields MUST be formatted strictly like "Tone 7" or "Tone 11" to be parsed programmatically.
 **Formatting:** Do NOT use HTML entities (e.g., use "/" instead of "&#x2F;"). Output plain text only.
+=======
+Your task is to analyze the client's photos (and optional videos) to provide a highly personalized, professional hair and style diagnosis.
+
+## 1. ANALYSIS PHASE (Internal Monologue - strict scientific approach)
+- **Face Shape & Bone Structure:** Analyze ratios (vertical vs. horizontal), jawline angle, cheekbone prominence, and forehead width. Classify as Oval, Round, Square, Base (Pentagon), or Triangle.
+- **Features:** Analyze eye shape/angle, nose prominence, and lip fullness.
+- **Body Skeleton:** Estimate skeletal type (Straight, Wave, Natural) by observing neck length, clavicle prominence, and shoulder line.
+- **Personal Color (Visual Estimation):** Analyze skin undertone (Pink/Ochre), eye color, and contrast. Deduce Season (Spring/Summer/Autumn/Winter).
+
+## 2. DIAGNOSIS GENERATION
+Based on the analysis, fill the \`result\` object.
+- Be specific. Instead of just "Round", say "Round with slight sharpness at the chin".
+- **Hair Condition:** Analyze the gloss, frizz, and movement of the hair in the image. Estimate the \`currentLevel\` (brightness) meticulously (e.g., "Tone 7").
+
+## 3. PROPOSAL GENERATION
+Based on the diagnosis, propose the BEST hair/fashion style.
+- **Hairstyles:** Propose styles that correct bone structure quirks (e.g., "Add volume on top to lengthen a round face").
+- **Hair Colors:** Select colors that complement the Personal Color. **Crucial:** Provide a specific \`recommendedLevel\` (e.g., "Tone 9") that blends well with their skin.
+- **Fashion/Makeup:** Suggest items that enhance their skeletal and color type.
+
+## 4. OUTPUT REQUIREMENT
+Return the result strictly in the defined JSON schema.
+**Crucial:** 
+1. The \`currentLevel\` and \`recommendedLevel\` fields MUST be formatted strictly like "Tone 7" or "Tone 11".
+2. **NO HTML ENTITIES:** Do not use encoded characters like &#x2F;. Use plain text slashes (/) and ampersands (&).
+>>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
 `;
 }
 

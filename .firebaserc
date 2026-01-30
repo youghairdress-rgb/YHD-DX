@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "yhd-ai",
+    "default": "yhd-dx",
     "dev": "yhd-dx"
   },
   "targets": {},
