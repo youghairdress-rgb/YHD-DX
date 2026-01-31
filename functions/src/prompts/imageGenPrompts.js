@@ -2,23 +2,15 @@
  * src/prompts/imageGenPrompts.js
  *
  * 画像生成 (フェーズ6) のためのAIプロンプトを定義する
-<<<<<<< HEAD
  * Phase 4-0 Update: "Ultimate Stylist" Edition
  * - 擬似LoRAアプローチによる髪質再現性の向上
  * - Chain-of-Thought (思考の連鎖) による顔・光・髪の完全な統合
  * - カメラレンズ仕様の指定による写実性の極限追求
-=======
- * Phase 3-2 Update: 顔の保護強化、ライティング統合、質感向上のためのチューニング済み
- * + トーン選択機能対応
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
  */
 
 /**
  * 最初の画像生成（インペインティング）用プロンプトを生成する
  * @param {object} data - リクエストデータ
-<<<<<<< HEAD
- * ... (引数は前回と同じ)
-=======
  * @param {string} data.hairstyleName - スタイル名
  * @param {string} data.hairstyleDesc - スタイル説明
  * @param {string} data.haircolorName - カラー名
@@ -31,20 +23,16 @@
  * @param {boolean} data.isUserColor - ご希望カラー優先フラグ
  * @param {boolean} data.hasToneOverride - トーン指定上書きフラグ
  * @return {string} - Gemini API に渡すプロンプト
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
  */
 function getGenerationPrompt(data) {
   const {
     hairstyleName, hairstyleDesc, haircolorName, haircolorDesc,
     recommendedLevel, currentLevel, userRequestsText, hasInspirationImage,
-    isUserStyle, isUserColor, hasToneOverride
+    isUserStyle, isUserColor, hasToneOverride,
+    keepStyle, keepColor // Patch for Phase 4 logic
   } = data;
 
-<<<<<<< HEAD
-  // ユーザー要望
-=======
   // ユーザーの要望テキストが空でない場合、プロンプトに差し込む
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
   const requestPromptPart = userRequestsText
     ? `
 **PRIORITY USER REQUEST:**
@@ -53,11 +41,7 @@ function getGenerationPrompt(data) {
 `
     : "";
 
-<<<<<<< HEAD
   // 参考画像 (Inspiration) - 分析指示を強化
-=======
-  // ご希望写真がある場合
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
   const inspirationPromptPart = hasInspirationImage
     ? `
 **REFERENCE IMAGE ANALYSIS (Image 2):**
@@ -65,11 +49,11 @@ function getGenerationPrompt(data) {
   1. Hair Texture (Smooth, Matte, Glossy, Frizzy?)
   2. Hair Density & Volume distribution
   3. Exact Color Nuance (Underlying pigments)
+  4. Lighting condition matches.
 - **Action:** TRANSFER these exact physical properties to the user in the Base Image (Image 1).
 `
     : "";
 
-<<<<<<< HEAD
   // --- スタイル指定ロジック (構造定義) ---
   let styleInstruction;
   if (keepStyle) {
@@ -81,11 +65,6 @@ function getGenerationPrompt(data) {
   - Only modify surface properties (color/texture) as requested.
 `;
   } else if (isUserStyle && hasInspirationImage) {
-=======
-  // スタイル指定の構築
-  let styleInstruction;
-  if (isUserStyle && hasInspirationImage) {
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
     styleInstruction = `
 - **Style Goal:** REPLICATE REFERENCE STYLE
 - **Structural Rules:**
@@ -102,70 +81,77 @@ function getGenerationPrompt(data) {
 `;
   }
 
-<<<<<<< HEAD
   // --- カラー指定ロジック (色彩物理定義) ---
   let colorInstruction;
-  // トーン（明度）の物理定義
-  const toneInstruction = hasToneOverride 
-      ? `**Luminance Target:** JHCA Level ${recommendedLevel} (Strictly adhere to this brightness value).`
-      : `**Luminance Target:** Transform from current ${currentLevel} to target ${recommendedLevel}.`;
+
+  // JHCA Level Scale Reference (derived from standard Japanese Hair Color Association scale)
+  const toneDescriptions = {
+    "Tone 5": "JHCA Level 5: Dark Brown. Value: 3/10. Pigment: Melanin rich. Visual: Almost black, but softer than distinct black. Visible only under strong light.",
+    "Tone 7": "JHCA Level 7: Medium Brown. Value: 4/10. Pigment: Red-Brown dominant. Visual: Natural brown, standard office-safe brightness. Hints of warmth.",
+    "Tone 9": "JHCA Level 9: Light Brown. Value: 5/10. Pigment: Orange-Brown. Visual: Visibly bright brown. Clearly dyed appearance. Lifts facial impression.",
+    "Tone 11": "JHCA Level 11: Honey Blonde/Gold. Value: 7/10. Pigment: Orange-Yellow. Visual: High brightness, fashion color. Melanin largely suppressed.",
+    "Tone 13": "JHCA Level 13: Bright Blonde. Value: 8/10. Pigment: Yellow dominant. Visual: Bleach territory. Clear yellow-gold. Transparent quality.",
+    "Tone 15": "JHCA Level 15: High Bleach. Value: 9/10. Pigment: Pale Yellow. Visual: Very bright blonde. Melanin almost gone. Near platinum.",
+    "Tone 18": "JHCA Level 18: White Bleach. Value: 10/10. Pigment: Faint Yellow. Visual: Platinum blonde. Translucent. Extreme brightness."
+  };
+
+  const targetToneDesc = toneDescriptions[recommendedLevel] || recommendedLevel;
+
+  // トーン指示の厳格化 (Strict Override Logic)
+  const toneInstruction = hasToneOverride
+    ? `
+**MANDATORY BRIGHTNESS (CRITICAL):**
+- **Target:** ${recommendedLevel} -> ${targetToneDesc}
+- **Constraint:** IGNORE original hair brightness. FORCE the result to match this specific tone level exactly.
+- **Action:** If Target is Tone 15+, apply extensive bleaching effects to remove dark pigments completely.
+`
+    : `**Luminance Target:** Transform from current ${currentLevel} to target ${recommendedLevel} naturally.`;
 
   if (keepColor) {
     if (hasToneOverride) {
-         colorInstruction = `
-- **Color Definition:** ORIGINAL HUE + ADJUSTED LUMINANCE
-- **Pigment Rules:** Retain the original melanin/dye pigments. ONLY shift the exposure/brightness to match Level ${recommendedLevel}.
+      colorInstruction = `
+- **Color Definition:** FORCE TONE CHANGE (IGNORE ORIGINAL COLOR)
+- **Pigment Rules:** 
+  - **CRITICAL:** DISREGARD the original hair color and hue. 
+  - **Action:** Completely REPAINT the hair with the Target Tone: ${recommendedLevel} (${targetToneDesc}).
+  - **Goal:** The final hair color must determination solely by the ${recommendedLevel} definition.
+${toneInstruction}
 `;
     } else {
-         colorInstruction = `
+      colorInstruction = `
 - **Color Definition:** PRESERVE ORIGINAL COLOR
 - **Pigment Rules:** Do NOT shift hue, saturation, or brightness. Keep the hair color exactly as seen in Base Image.
 `;
     }
   } else if (isUserColor && hasInspirationImage && !hasToneOverride) {
-      colorInstruction = `
+    colorInstruction = `
 - **Color Definition:** CLONE REFERENCE COLOR
 - **Pigment Rules:** Extract RGB/CMYK profile from Image 2's hair and map it to the user's hair in Image 1.
 `;
   } else if (isUserColor && hasInspirationImage && hasToneOverride) {
-      colorInstruction = `
+    colorInstruction = `
 - **Color Definition:** REFERENCE HUE + TARGET LUMINANCE
 - **Pigment Rules:** Extract the Hue/Saturation from Image 2, but force the Brightness to match Level ${recommendedLevel}.
 `;
   } else {
-      colorInstruction = `
+    colorInstruction = `
 - **Color Definition:** ${haircolorName}
-- **Pigment Rules:** ${haircolorDesc}
-=======
-  // カラー指定の構築
-  // トーン指定がある場合は、それを明るさの基準として強制する
-  let colorInstruction;
-  const toneInstruction = hasToneOverride
-    ? `**IMPORTANT:** The user has explicitly selected **${recommendedLevel}**. You MUST adjust the brightness to match this specific tone level strictly, regardless of the color name.`
-    : `**Target Brightness:** ${recommendedLevel} (JHCA Level Scale)\n  - *Logic:* Transform from current ${currentLevel} to ${recommendedLevel}.`;
-
-  if (isUserColor && hasInspirationImage && !hasToneOverride) {
-    // ご希望カラーかつトーン指定なし -> 写真を完全コピー
-    colorInstruction = `
-- **Color Name:** User's Desired Color
-- **Color Description:** **STRICTLY COPY THE HAIR COLOR FROM THE REFERENCE IMAGE (Image 2).**
-  - Match the hue, saturation, and brightness of the hair in Image 2.
-`;
-  } else if (isUserColor && hasInspirationImage && hasToneOverride) {
-    // ご希望カラーかつトーン指定あり -> 色味は写真、明るさはトーン指定
-    colorInstruction = `
-- **Color Name:** User's Desired Color (Modified Brightness)
-- **Color Description:** Extract the *hue/saturation* (color shade) from the REFERENCE IMAGE (Image 2), but adjust the *brightness* to match **${recommendedLevel}**.
-`;
-  } else {
-    // AI提案カラー (またはトーン指定のみ)
-    colorInstruction = `
-- **Color Name:** ${haircolorName}
-- **Color Description:** ${haircolorDesc}
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
-- ${toneInstruction}
+- **Pigment Rules:**
+  - **Hue:** ${haircolorDesc}
+  - **Brightness:** Apply ${recommendedLevel} (${targetToneDesc}).
+${toneInstruction}
 `;
   }
+
+  // Append Tone Instruction to Color Instruction (Redundant but reinforces usually)
+  // For strict override modes, we already embedded it. For others, append.
+  if (!keepColor && !isUserColor) {
+    // standard proposal path - already embedded
+  } else if (!hasToneOverride) {
+    // no override path - append default
+    colorInstruction += `\n${toneInstruction}`;
+  }
+
 
   return `
 You are the world's leading AI Hair Stylist and a VFX Artist specializing in Digital Human Compositing.
@@ -210,27 +196,27 @@ ${requestPromptPart}
  */
 function getRefinementPrompt(refinementText) {
   return `
-**TASK:** High-End Photo Retouching (Hair Specific)
-**INPUT:** [Base Image] A generated hairstyle image.
-**USER INSTRUCTION:** "${refinementText}"
+      ** TASK:** High - End Photo Retouching(Hair Specific)
+        ** INPUT:** [Base Image] A generated hairstyle image.
+** USER INSTRUCTION:** "${refinementText}"
 
-**PROCESS:**
-1.  **Identify:** Locate the specific hair region relevant to the instruction (e.g., "bangs", "tips", "overall volume").
-2.  **Modify:** Apply the change "${refinementText}" while maintaining the photorealistic texture established in the Base Image.
-3.  **Blend:** Ensure the modified area integrates seamlessly with the rest of the hair and the background.
+    ** PROCESS:**
+      1. ** Identify:** Locate the specific hair region relevant to the instruction(e.g., "bangs", "tips", "overall volume").
+2. ** Modify:** Apply the change "${refinementText}" while maintaining the photorealistic texture established in the Base Image.
+3. ** Blend:** Ensure the modified area integrates seamlessly with the rest of the hair and the background.
 
-**INTERPRETATION LOGIC:**
-- **"Brighter":** Increase exposure on hair strands, boost specular highlights.
-- **"Darker":** Deepen shadows, reduce exposure, add richness to pigment.
-- **"Shorter":** Retract hair length, ensuring ends look natural (not chopped).
-- **"Volume Up":** Increase hair density and lift at the roots.
+** INTERPRETATION LOGIC:**
+- ** "Brighter":** Increase exposure on hair strands, boost specular highlights.
+- ** "Darker":** Deepen shadows, reduce exposure, add richness to pigment.
+- ** "Shorter":** Retract hair length, ensuring ends look natural(not chopped).
+- ** "Volume Up":** Increase hair density and lift at the roots.
 
-**CONSTRAINTS:**
-- **FACE IS OFF-LIMITS:** Do not touch the face.
-- **KEEP REALISM:** Maintain 8K texture quality. No blurring.
+** CONSTRAINTS:**
+- ** FACE IS OFF - LIMITS:** Do not touch the face.
+- ** KEEP REALISM:** Maintain 8K texture quality.No blurring.
 
-**NEGATIVE PROMPTS:**
-(face change), (blur), (loss of detail), (artificial look), (painting).
+** NEGATIVE PROMPTS:**
+    (face change), (blur), (loss of detail), (artificial look), (painting).
 `;
 }
 

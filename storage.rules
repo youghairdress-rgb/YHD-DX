@@ -12,13 +12,15 @@ service firebase.storage {
     // ★★★ 修正: 顧客のマイページ用ギャラリールール ★★★
     // AI診断アプリ(顧客本人)と管理アプリ(管理者)の両方からアクセスできるようにする
     match /users/{userId}/gallery/{allPaths=**} {
-      // 読み書き: 顧客本人 または 管理者
-      allow read, write: if request.auth.uid == userId || isAdmin();
+      // 読み取りは誰でもOK（Webアプリでの表示用）
+      allow read: if true;
+      allow write: if request.auth.uid == userId || isAdmin();
     }
     
     // Diagnosis temporary uploads
     match /uploads/{userId}/{allPaths=**} {
-      allow read, write: if request.auth.uid == userId || isAdmin();
+      allow read: if true;
+      allow write: if request.auth.uid == userId || isAdmin();
     }
     // ★★★ 修正ここまで ★★★
 

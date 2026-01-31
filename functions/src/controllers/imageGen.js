@@ -24,10 +24,7 @@ async function fetchImageAsBase64(url, logKey) {
 
   const arrayBuffer = await response.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
-<<<<<<< HEAD
   logger.info(`[fetchImageAsBase64] ${logKey} fetched successfully. MimeType: ${mimeType}`);
-=======
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
   return { base64, mimeType };
 }
 
@@ -48,7 +45,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const apiKey = imageGenApiKey.value();
+  const apiKey = imageGenApiKey.value() ? imageGenApiKey.value().trim() : "";
   if (!apiKey || !storage) {
     logger.error("[generateHairstyleImage] API Key or Storage service is missing.");
     return res.status(500).json({ error: "Configuration Error", message: "API Key or Storage not configured." });
@@ -79,12 +76,11 @@ async function generateHairstyleImageController(req, res, dependencies) {
   logger.info(`[generateHairstyleImage] Received request for user: ${firebaseUid}`);
 
   // 4. Gemini API リクエストペイロードの作成
-<<<<<<< HEAD
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
-=======
-  // Model: gemini-2.5-flash-image-preview (Experimental/Preview model heavily optimized for image gen/edit)
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
->>>>>>> b81dfa61be4384c32e74a235b49e7df98fdff0c8
+  // Model: Corrected to gemini-2.5-flash-image
+  const modelName = "gemini-2.5-flash-image";
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+  logger.info(`[generateHairstyleImage] Using Model: ${modelName}`);
 
   const prompt = getGenerationPrompt({
     hairstyleName,
@@ -110,6 +106,12 @@ async function generateHairstyleImageController(req, res, dependencies) {
     generationConfig: {
       responseModalities: ["IMAGE"],
     },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+    ]
   };
 
   // 3. 画像データの取得 (元画像 + ご希望画像)
@@ -130,6 +132,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     }
   } catch (fetchError) {
     logger.error("[generateHairstyleImage] Failed to fetch or process image(s):", fetchError);
+    // Return detailed error to client
     return res.status(500).json({ error: "Image Fetch Error", message: `画像の取得に失敗しました: ${fetchError.message}` });
   }
 
@@ -141,7 +144,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
     const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png"; // デフォルト
 
     if (!generatedBase64) {
-      logger.error("[generateHairstyleImage] No image data found in Gemini response.", { response: aiResponse });
+      logger.error("[generateHairstyleImage] No image data found. Response:", JSON.stringify(aiResponse));
       throw new Error("AIからの応答に画像データが含まれていませんでした。");
     }
 
@@ -169,7 +172,7 @@ async function refineHairstyleImageController(req, res, dependencies) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const apiKey = imageGenApiKey.value();
+  const apiKey = imageGenApiKey.value() ? imageGenApiKey.value().trim() : "";
   if (!apiKey || !storage) {
     logger.error("[refineHairstyleImage] API Key or Storage service is missing.");
     return res.status(500).json({ error: "Configuration Error", message: "API Key or Storage not configured." });
@@ -205,7 +208,8 @@ async function refineHairstyleImageController(req, res, dependencies) {
   }
 
   // 4. Gemini API リクエストペイロードの作成
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
+  const modelName = "gemini-2.5-flash-image";
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
   const prompt = getRefinementPrompt(refinementText);
 
   const payload = {
@@ -226,19 +230,28 @@ async function refineHairstyleImageController(req, res, dependencies) {
     generationConfig: {
       responseModalities: ["IMAGE"],
     },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+    ]
   };
 
   // 5. API呼び出し
   try {
     const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, 3);
-    const imagePart = aiResponse?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
-    const generatedBase64 = imagePart?.inlineData?.data;
-    const generatedMimeType = imagePart?.inlineData?.mimeType || "image/png";
+    const candidate = aiResponse?.candidates?.[0];
+    const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
 
-    if (!generatedBase64) {
-      logger.error("[refineHairstyleImage] No image data found in Gemini response.", { response: aiResponse });
-      throw new Error("AIからの応答に画像データが含まれていませんでした。");
+    if (!imagePart) {
+      logger.error("[refineHairstyleImage] No image data. FinishReason:", candidate?.finishReason);
+      logger.error("[refineHairstyleImage] Safety Ratings:", JSON.stringify(candidate?.safetyRatings));
+      throw new Error("AIのセーフティフィルタ等の理由により画像が生成されませんでした。");
     }
+
+    const generatedBase64 = imagePart.inlineData.data;
+    const generatedMimeType = imagePart.inlineData.mimeType || "image/png";
 
     logger.info("[refineHairstyleImage] Gemini API request successful. Image refined.");
 

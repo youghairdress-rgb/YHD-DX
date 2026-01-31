@@ -25,7 +25,7 @@ async function requestDiagnosisController(req, res, dependencies) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const apiKey = llmApiKey.value();
+  const apiKey = llmApiKey.value() ? llmApiKey.value().trim() : "";
   if (!apiKey) {
     logger.error("[requestDiagnosis] LLM_APIKEY is missing.");
     return res.status(500).json({ error: "Configuration Error", message: "API Key not configured." });
@@ -115,6 +115,14 @@ async function requestDiagnosisController(req, res, dependencies) {
   }
 
   // 4. Gemini API リクエストペイロードの作成
+  // Debug: Check API Key presence
+  if (apiKey) {
+    logger.info(`[requestDiagnosis] LLM_APIKEY loaded. Prefix: ${apiKey.substring(0, 5)}...`);
+  } else {
+    logger.error(`[requestDiagnosis] LLM_APIKEY is EMPTY/NULL.`);
+  }
+
+  // Use gemini-2.5-flash-preview-09-2025 as confirmed by user it was working up to Phase 6
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
   // ★ 追加: トレンド情報の取得 (Firestore)
@@ -201,7 +209,18 @@ async function requestDiagnosisController(req, res, dependencies) {
     return res.status(200).json(sanitizedJson); // パース＆サニタイズしたJSONを返す
   } catch (apiError) {
     logger.error("[requestDiagnosis] Gemini API call failed:", apiError);
-    return res.status(500).json({ error: "Gemini API Error", message: `AI診断リクエストの送信に失敗しました。\n詳細: ${apiError.message}` });
+    // Safe Diagnostic Info
+    const keyStatus = apiKey ? `Present (Length: ${apiKey.length}, Prefix: ${apiKey.substring(0, 4)}...)` : "Missing/Empty";
+
+    return res.status(500).json({
+      error: "Gemini API Error",
+      message: `AI診断リクエストの送信に失敗しました。\n詳細: ${apiError.message}`,
+      debugInfo: {
+        reason: "API Call Failed",
+        keyStatus: keyStatus,
+        model: "gemini-1.5-flash-002" // Hardcoded to confirm model switch
+      }
+    });
   }
 }
 

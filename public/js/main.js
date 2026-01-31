@@ -12,12 +12,12 @@ import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.g
 
 import { appState, IS_DEV_MODE, USE_MOCK_AUTH } from './state.js';
 import { initializeAppFailure, hideLoadingScreen, setTextContent, compressImage, base64ToBlob, logger } from './helpers.js';
-import { 
-    changePhase, displayDiagnosisResult, displayProposalResult, checkAllFilesUploaded, 
-    checkProposalSelection, 
+import {
+    changePhase, displayDiagnosisResult, displayProposalResult, checkAllFilesUploaded,
+    checkProposalSelection,
     displayGeneratedImage, showModal, toggleLoader
 } from './ui.js';
-import { 
+import {
     saveImageToGallery, uploadFileToStorageOnly, requestDiagnosis, generateHairstyleImage, refineHairstyleImage, requestFirebaseCustomToken, saveScreenshotToGallery
 } from './api.js';
 
@@ -30,7 +30,7 @@ const initializeAppProcess = async () => {
             return { profile: { userId: "dev-user", displayName: "Dev User" }, accessToken: "dev-token" };
         }
         if (typeof liff === 'undefined') throw new Error("LIFF SDK not loaded.");
-        
+
         await liff.init({ liffId: appState.liffId });
         if (!liff.isLoggedIn()) {
             liff.login();
@@ -55,8 +55,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
         const app = initializeApp(appState.firebaseConfig);
-        appState.firebase = { 
-            app, auth: getAuth(app), storage: getStorage(app), firestore: getFirestore(app) 
+        appState.firebase = {
+            app, auth: getAuth(app), storage: getStorage(app), firestore: getFirestore(app)
         };
 
         const params = new URLSearchParams(window.location.search);
@@ -122,7 +122,7 @@ function setupEventListeners() {
     if (inspInput) {
         const trigger = (e) => { e.stopPropagation(); inspInput.click(); };
         document.getElementById('inspiration-upload-container')?.addEventListener('click', trigger);
-        if(inspBtn) inspBtn.addEventListener('click', trigger);
+        if (inspBtn) inspBtn.addEventListener('click', trigger);
         inspInput.addEventListener('change', handleInspirationSelect);
     }
     document.getElementById('inspiration-delete-btn')?.addEventListener('click', (e) => {
@@ -133,7 +133,7 @@ function setupEventListeners() {
         const btn = item.querySelector('button');
         const input = item.querySelector('.file-input');
         if (btn && input) {
-            btn.addEventListener('click', (e) => { e.stopPropagation(); if(!btn.disabled) input.click(); });
+            btn.addEventListener('click', (e) => { e.stopPropagation(); if (!btn.disabled) input.click(); });
             input.addEventListener('change', (e) => handleFileSelect(e, item.id, btn));
         }
     });
@@ -172,15 +172,15 @@ async function captureAndSave(selector, title) {
         const canvas = await html2canvas(element, {
             useCORS: true, // 外部画像(CORS)対応
             scale: 2, // 高画質
-            allowTaint: true, 
+            allowTaint: true,
             backgroundColor: "#ffffff", // 背景色指定
-            ignoreElements: (el) => el.classList.contains('no-print') 
+            ignoreElements: (el) => el.classList.contains('no-print')
         });
         const dataUrl = canvas.toDataURL("image/png");
-        
+
         // api.jsの関数を呼ぶ
         await saveScreenshotToGallery(appState.userProfile.firebaseUid, dataUrl, title);
-        
+
         showModal("保存完了", `${title}を保存しました！`);
     } catch (error) {
         console.error("Capture failed:", error);
@@ -195,36 +195,36 @@ async function handleInspirationSelect(e) {
     if (!file) return;
     const btn = document.getElementById('inspiration-upload-btn');
     const status = document.getElementById('inspiration-upload-status');
-    
-    if(status) status.textContent = '処理中...';
-    if(btn) btn.disabled = true;
+
+    if (status) status.textContent = '処理中...';
+    if (btn) btn.disabled = true;
 
     try {
         const processed = file.type.startsWith('image/') ? await compressImage(file) : file;
         const url = await uploadFileToStorageOnly(appState.userProfile.firebaseUid, processed, 'item-inspiration-photo');
-        
+
         const localUrl = URL.createObjectURL(processed);
         await saveImageToGallery(
-            appState.userProfile.firebaseUid, 
-            localUrl, 
+            appState.userProfile.firebaseUid,
+            localUrl,
             'inspiration', 'inspiration', ''
         );
         URL.revokeObjectURL(localUrl);
-        
+
         appState.uploadedFileUrls['item-inspiration-photo'] = url;
         appState.inspirationImageUrl = url;
 
         document.getElementById('inspiration-image-preview').src = url;
         document.getElementById('inspiration-upload-title').textContent = '選択済み';
-        if(status) status.textContent = 'タップして変更';
+        if (status) status.textContent = 'タップして変更';
         document.getElementById('inspiration-delete-btn').style.display = 'inline-block';
-        if(btn) { btn.textContent = '変更'; btn.disabled = false; }
+        if (btn) { btn.textContent = '変更'; btn.disabled = false; }
     } catch (err) {
         console.error(err);
         showModal("エラー", "アップロード失敗: " + err.message);
-        if(btn) btn.disabled = false;
+        if (btn) btn.disabled = false;
     } finally {
-        if(e && e.target) e.target.value = null;
+        if (e && e.target) e.target.value = null;
     }
 }
 
@@ -241,7 +241,7 @@ function handleInspirationDelete() {
 async function handleFileSelect(e, itemId, btn) {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     btn.textContent = '処理中...';
     btn.disabled = true;
     delete appState.uploadedFileUrls[itemId];
@@ -250,21 +250,26 @@ async function handleFileSelect(e, itemId, btn) {
     try {
         const isVideo = itemId.includes('video');
         const processed = (!isVideo && file.type.startsWith('image/')) ? await compressImage(file) : file;
+
+        // Save Blob locally for CORS-safe operations
+        if (!appState.localBlobs) appState.localBlobs = {};
+        appState.localBlobs[itemId] = processed;
+
         const url = await uploadFileToStorageOnly(appState.userProfile.firebaseUid, processed, itemId);
-        
+
         appState.uploadedFileUrls[itemId] = url;
         btn.textContent = '完了';
         btn.classList.replace('btn-outline', 'btn-success');
         document.querySelector(`#${itemId} .upload-icon`)?.classList.add('completed');
-        
-        const allSet = ['item-front-photo','item-side-photo','item-back-photo','item-front-video','item-back-video'].every(k => appState.uploadedFileUrls[k]);
+
+        const allSet = ['item-front-photo', 'item-side-photo', 'item-back-photo', 'item-front-video', 'item-back-video'].every(k => appState.uploadedFileUrls[k]);
         checkAllFilesUploaded(allSet);
     } catch (err) {
         showModal("エラー", "アップロード失敗: " + err.message);
         btn.textContent = '撮影';
         btn.disabled = false;
     } finally {
-        if(e && e.target) e.target.value = null;
+        if (e && e.target) e.target.value = null;
     }
 }
 
@@ -272,7 +277,7 @@ async function handleDiagnosisRequest() {
     try {
         changePhase('phase3.5');
         const res = await requestDiagnosis(appState.uploadedFileUrls, appState.userProfile, appState.gender);
-        
+
         appState.aiDiagnosisResult = res.result;
         appState.aiProposal = res.proposal;
         displayDiagnosisResult(res.result);
@@ -284,15 +289,55 @@ async function handleDiagnosisRequest() {
 }
 
 async function handleImageGenerationRequest() {
-    const container = document.querySelector('.generated-image-container');
-    const spinner = document.getElementById('refinement-spinner');
-    const img = document.getElementById('generated-image');
-    const desc = document.getElementById('generated-image-description');
+    // New UI Elements
+    const spinner = document.getElementById('loading-screen'); // Use global loader for now
+    const img = document.getElementById('main-diagnosis-image');
 
-    if(container) container.style.display = 'block';
-    if(spinner) spinner.style.display = 'block';
-    if(img) img.style.opacity = '0.3';
-    if(desc) desc.textContent = "生成中...";
+    // Note: The input area 'generation-config-section' is not hidden by default, so we don't need to 'show' it.
+    // We just need to manage the Loading state.
+
+    // Show Global Loader (but keep UI stable)
+    if (typeof toggleLoader === 'function') {
+        toggleLoader(true, "AIが画像を生成しています...");
+    }
+
+    // ★ UX Improvement: Show placeholder (original image) immediately so layout doesn't jump
+    const adjustmentContainer = document.getElementById('phase6-adjustment-container');
+    const mainDiagnosisImage = document.getElementById('main-diagnosis-image');
+
+    if (adjustmentContainer && mainDiagnosisImage) {
+        // Show container
+        adjustmentContainer.style.display = 'block';
+
+        // Hide previous canvas if exists (from previous generation)
+        const canvas = document.getElementById('phase6-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Set placeholder to original front photo
+        if (appState.uploadedFileUrls['item-front-photo']) {
+            console.log("[main.js] Setting placeholder. LocalBlob:", !!(appState.localBlobs && appState.localBlobs['item-front-photo']));
+
+            // Prefer local Blob if available (CORS-safe)
+            if (appState.localBlobs && appState.localBlobs['item-front-photo']) {
+                const blobUrl = URL.createObjectURL(appState.localBlobs['item-front-photo']);
+                mainDiagnosisImage.removeAttribute('crossOrigin'); // Blob URLs don't need CORS
+                mainDiagnosisImage.src = blobUrl;
+            } else {
+                // Fallback to Remote URL
+                // CRITICAL: Remove crossOrigin to avoid CORS error on Firebase Storage URL
+                mainDiagnosisImage.removeAttribute('crossOrigin');
+                mainDiagnosisImage.src = appState.uploadedFileUrls['item-front-photo'];
+            }
+
+            mainDiagnosisImage.style.display = 'block';
+            mainDiagnosisImage.style.filter = 'blur(2px) grayscale(50%)';
+        }
+    }
+
+    if (img) img.style.opacity = '1.0'; // Don't use simple opacity if we are using the above logic
 
     try {
         const styleSelect = document.querySelector('input[name="style-select"]:checked')?.value;
@@ -326,8 +371,7 @@ async function handleImageGenerationRequest() {
         }
 
         const userReq = document.getElementById('user-requests')?.value || "";
-        
-        // ★★★ 修正: すべてのパラメータを1つのオブジェクトにまとめる ★★★
+
         const generationParams = {
             originalImageUrl: appState.uploadedFileUrls['item-front-photo'],
             firebaseUid: appState.userProfile.firebaseUid,
@@ -336,12 +380,11 @@ async function handleImageGenerationRequest() {
             haircolorName: cName,
             haircolorDesc: cDesc,
             recommendedLevel: recLevel,
-            // ★ 診断結果から現在のレベルを取得して渡す（これが抜けていた！）
-            currentLevel: appState.aiDiagnosisResult?.hairCondition?.currentLevel || "Tone 7", 
+            currentLevel: appState.aiDiagnosisResult?.hairCondition?.currentLevel || "Tone 7",
             userRequestsText: userReq,
             inspirationImageUrl: appState.inspirationImageUrl,
-            isUserStyle, isUserColor, 
-            hasToneOverride: !!toneSelect, 
+            isUserStyle, isUserColor,
+            hasToneOverride: !!toneSelect,
             keepStyle, keepColor
         };
 
@@ -351,37 +394,41 @@ async function handleImageGenerationRequest() {
         appState.generatedImageMimeType = res.mimeType;
 
         displayGeneratedImage(res.imageBase64, res.mimeType, hName, cName, recLevel);
-        
-        if(spinner) spinner.style.display = 'none';
-        if(img) img.style.opacity = '1';
+
+        if (img) img.style.opacity = '1';
 
     } catch (err) {
         showModal("生成エラー", err.message);
-        if(spinner) spinner.style.display = 'none';
+        // Error handling: ensuring UI is usable
+        if (img) img.style.opacity = '1';
+    } finally {
+        if (typeof toggleLoader === 'function') {
+            toggleLoader(false);
+        }
     }
 }
 
 async function handleImageRefinementRequest() {
     const input = document.getElementById('refinement-prompt-input');
     if (!input?.value || !appState.generatedImageDataBase64) return;
-    
+
     const img = document.getElementById('generated-image');
-    if(img) img.style.opacity = '0.5';
+    if (img) img.style.opacity = '0.5';
 
     try {
         const dataUrl = `data:${appState.generatedImageMimeType};base64,${appState.generatedImageDataBase64}`;
         const res = await refineHairstyleImage(dataUrl, appState.userProfile.firebaseUid, input.value);
-        
+
         appState.generatedImageDataBase64 = res.imageBase64;
         appState.generatedImageMimeType = res.mimeType;
-        if(img) {
+        if (img) {
             img.src = `data:${res.mimeType};base64,${res.imageBase64}`;
             img.style.opacity = '1';
         }
         input.value = '';
     } catch (err) {
         showModal("調整エラー", err.message);
-        if(img) img.style.opacity = '1';
+        if (img) img.style.opacity = '1';
     }
 }
 
@@ -390,10 +437,10 @@ async function handleSaveGeneratedImage() {
     try {
         const blob = base64ToBlob(appState.generatedImageDataBase64, appState.generatedImageMimeType);
         const file = new File([blob], "saved.png", { type: appState.generatedImageMimeType });
-        
+
         await saveImageToGallery(
-            appState.userProfile.firebaseUid, 
-            URL.createObjectURL(file), 
+            appState.userProfile.firebaseUid,
+            URL.createObjectURL(file),
             "generated_style", "generated_color", ""
         );
         showModal("保存完了", "画像を保存しました！");

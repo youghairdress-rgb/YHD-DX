@@ -98,7 +98,7 @@ Output Format:
  */
 async function analyzeTrendsController(req, res, dependencies) {
     const { imageGenApiKey } = dependencies; // Gemini利用のためImageGen用のキーを流用、または専用キー
-    const apiKey = imageGenApiKey.value();
+    const apiKey = imageGenApiKey.value() ? imageGenApiKey.value().trim() : "";
 
     if (!apiKey) {
         return res.status(500).json({ error: "Configuration Error", message: "API Key missing." });
