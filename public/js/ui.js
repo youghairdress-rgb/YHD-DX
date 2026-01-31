@@ -275,8 +275,8 @@ export async function initializePhase6Adjustments() {
                 const rSaturate = document.getElementById('range-saturate');
 
                 if (rBrightness) rBrightness.value = 10;
-                if (rHue) rHue.value = 0;
-                if (rSaturate) rSaturate.value = 100;
+                if (rHue) rHue.value = 180;
+                if (rSaturate) rSaturate.value = 0;
                 onInput();
             } else {
                 analyzeBtn.textContent = '分析失敗。もう一度試してください';
@@ -318,8 +318,8 @@ export async function initializePhase6Adjustments() {
             const rHue = document.getElementById('range-hue');
             const rSaturate = document.getElementById('range-saturate');
             if (rBrightness) rBrightness.value = 10;
-            if (rHue) rHue.value = 0;
-            if (rSaturate) rSaturate.value = 100;
+            if (rHue) rHue.value = 180;
+            if (rSaturate) rSaturate.value = 0;
             onInput();
         };
     }

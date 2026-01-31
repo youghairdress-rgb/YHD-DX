@@ -1,18 +1,30 @@
 /* 基本設定 */
 :root {
-    --primary-color: #2dd4bf; /* ティファニーブルー */
-    --primary-color-light: #a7f3d0; /* 明るいティファニーブルー系 */
-    --primary-color-lighter: #f0fdfa; /* ティファニーブルー系 (ホバー/選択背景) */
-    --primary-color-dark: #14b8a6; /* ティファニーブルー系 (暗め) */
-    
-    --dark-color: #0f172a;    /* より濃い青 (コントラスト用) */
-    --text-color: #334155;      /* 基本テキスト (少し濃く) */
-    --text-color-light: #64748b; /* 薄いテキスト */
-    --bg-color: #f8fafc;      /* 背景色 (少しだけ色味変更) */
-    --border-color: #e2e8f0;   /* 境界線 */
-    --card-bg: #ffffff;       /* カード背景 */
-    --success-color: #10b981;  /* 成功時の色 */
-    --disabled-color: #cbd5e1; /* 無効時の色 */
+    --primary-color: #2dd4bf;
+    /* ティファニーブルー */
+    --primary-color-light: #a7f3d0;
+    /* 明るいティファニーブルー系 */
+    --primary-color-lighter: #f0fdfa;
+    /* ティファニーブルー系 (ホバー/選択背景) */
+    --primary-color-dark: #14b8a6;
+    /* ティファニーブルー系 (暗め) */
+
+    --dark-color: #0f172a;
+    /* より濃い青 (コントラスト用) */
+    --text-color: #334155;
+    /* 基本テキスト (少し濃く) */
+    --text-color-light: #64748b;
+    /* 薄いテキスト */
+    --bg-color: #f8fafc;
+    /* 背景色 (少しだけ色味変更) */
+    --border-color: #e2e8f0;
+    /* 境界線 */
+    --card-bg: #ffffff;
+    /* カード背景 */
+    --success-color: #10b981;
+    /* 成功時の色 */
+    --disabled-color: #cbd5e1;
+    /* 無効時の色 */
 }
 
 /* 全体のフォントとベーススタイル */
@@ -39,21 +51,138 @@ body {
     min-height: 80vh;
 }
 
-/* --- フェーズ管理 --- */
+/* --- フェーズ管理 (Landscape Optimized) --- */
 .phase-container {
     display: none;
     width: 100%;
-    max-width: 450px;
+    max-width: 1440px;
+    /* High-res width */
     margin: 0 auto;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease-in-out, visibility 0s 0.3s; 
+    transition: opacity 0.3s ease-in-out, visibility 0s 0.3s;
 }
+
+/* ... existing styles ... */
+
+/* --- Phase 6 Layout (Side-by-Side) --- */
+#phase6-adjustment-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    align-items: flex-start;
+    max-width: 100% !important;
+    /* インラインスタイルを上書き */
+    padding: 30px !important;
+    /* User Requirement: Image on the Right */
+    flex-direction: row-reverse;
+}
+
+/* Make sure the image preview takes order last visually if not reversed? 
+   row-reverse puts the FIRST child (Image) on the RIGHT.
+   So Image (DOM 1st) -> Right. Controls (DOM 2nd) -> Left.
+   Correct.
+*/
+
+/* PC View & Mobile Landscape: Side-by-Side */
+/* FORCE 2-column on any landscape-ish width (iPhone SE landscape is ~667px, but let's be safe at 400px+) */
+@media (min-width: 400px) and (orientation: landscape),
+(min-width: 600px) {
+    .split-container {
+        display: flex;
+        flex-direction: row;
+        /* FORCE row */
+        flex-wrap: nowrap;
+        /* FORCE no wrapping */
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    /* Increase gap for Tablets/PC */
+    @media (min-width: 768px) {
+        .split-container {
+            gap: 30px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .split-container {
+            gap: 50px;
+        }
+    }
+
+    .split-column-left,
+    .split-column-right {
+        flex: 1;
+        min-width: 0;
+        /* Crucial: allows flex items to shrink below content size if needed */
+        width: 50%;
+        /* Helper hint */
+    }
+}
+
+
+/* Adjust Phase 6 item widths for smaller landscape */
+/* These apply GLOBALLY (outside media query) so they have a base min-width */
+.image-preview-wrapper {
+    flex: 1;
+    min-width: 200px;
+    /* Lowered even further to fit nested flex layouts */
+}
+
+.adjustment-controls {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* --- Result & Proposal Grid (Multi-column) --- */
+.result-section,
+.proposal-section {
+    max-width: 100%;
+}
+
+.proposal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.upload-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.upload-item {
+    margin-bottom: 0;
+}
+
+/* Center Titles & Buttons */
+.form-title,
+.result-title,
+.proposal-title,
+.refinement-title {
+    text-align: center;
+    justify-content: center;
+    /* For flex titles */
+}
+
+/* Main Buttons container centering */
+#phase4 button,
+#phase5 button {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ... existing styles ... */
 .phase-container.active {
     display: block;
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.3s ease-in-out, visibility 0s 0s; 
+    transition: opacity 0.3s ease-in-out, visibility 0s 0s;
 }
 
 /* カードスタイル */
@@ -149,6 +278,7 @@ body {
     cursor: pointer;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .inspiration-upload-container:hover {
     border-color: #d1d5db;
 }
@@ -169,21 +299,24 @@ body {
     justify-content: center;
     align-items: center;
 }
+
 /* 画像が読み込まれていない時 (壊れた画像アイコンを非表示) */
 #inspiration-image-preview:not([src]) {
-    content: '📷'; 
+    content: '📷';
     font-size: 24px;
     color: #4f46e5;
 }
+
 /* 画像が読み込まれた時 */
 #inspiration-image-preview[src] {
-    content: ''; 
+    content: '';
 }
 
 .inspiration-upload-text {
     flex-grow: 1;
     text-align: left;
 }
+
 #inspiration-upload-title {
     display: block;
     font-weight: 600;
@@ -191,6 +324,7 @@ body {
     font-size: 15px;
     margin-bottom: 2px;
 }
+
 #inspiration-upload-status {
     font-size: 13px;
     color: var(--text-color-light);
@@ -199,7 +333,8 @@ body {
 /* 削除ボタン */
 .btn-delete {
     background-color: transparent;
-    color: #ef4444; /* 赤色 */
+    color: #ef4444;
+    /* 赤色 */
     border: none;
     padding: 8px 12px;
     border-radius: 20px;
@@ -209,8 +344,10 @@ body {
     transition: all 0.2s ease;
     flex-shrink: 0;
     margin-left: 10px;
-    display: none; /* デフォルト非表示 */
+    display: none;
+    /* デフォルト非表示 */
 }
+
 .btn-delete:hover {
     background-color: #fee2e2;
 }
@@ -242,7 +379,7 @@ body {
     color: var(--text-color-light);
 }
 
-.gender-selection input[type="radio"]:checked + label {
+.gender-selection input[type="radio"]:checked+label {
     background-color: var(--primary-color);
     color: white;
     font-weight: 600;
@@ -345,8 +482,8 @@ button {
 }
 
 .btn-success:disabled {
-   opacity: 1;
-   cursor: default;
+    opacity: 1;
+    cursor: default;
 }
 
 .btn-disabled {
@@ -428,6 +565,7 @@ button {
     margin-bottom: 30px;
     text-align: left;
 }
+
 .proposal-title {
     font-size: 18px;
     color: var(--dark-color);
@@ -436,6 +574,7 @@ button {
     align-items: center;
     font-weight: 600;
 }
+
 .proposal-icon {
     width: 28px;
     height: 28px;
@@ -449,6 +588,7 @@ button {
     grid-template-columns: 1fr;
     gap: 15px;
 }
+
 .proposal-card {
     background-color: #f9fafb;
     border: 2px solid var(--border-color);
@@ -458,11 +598,13 @@ button {
     transition: all 0.2s ease;
     text-align: left;
 }
+
 .proposal-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.07);
     border-color: #d1d5db;
 }
+
 .proposal-card.selected {
     border-color: var(--primary-color-dark);
     background-color: var(--primary-color-lighter);
@@ -477,6 +619,7 @@ button {
     font-weight: 600;
     font-size: 15px;
 }
+
 .proposal-card p {
     font-size: 14px;
     margin: 0;
@@ -491,6 +634,7 @@ button {
     border-radius: 12px;
     margin: 20px 0 10px 0;
 }
+
 .top-stylist-comment p {
     margin: 0;
     font-size: 15px;
@@ -505,11 +649,13 @@ button {
     padding: 10px 0;
     justify-items: center;
 }
+
 .color-swatch-item {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
+
 .color-swatch-circle {
     width: 50px;
     height: 50px;
@@ -517,8 +663,9 @@ button {
     border: 2px solid var(--border-color);
     margin-bottom: 8px;
     background-color: #ccc;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
+
 .color-swatch-name {
     font-size: 13px;
     color: var(--text-color);
@@ -535,11 +682,13 @@ button {
     border: 1px solid var(--border-color);
     border-radius: 16px;
 }
+
 .makeup-item-label {
     font-weight: 500;
     color: var(--text-color-light);
     font-size: 15px;
 }
+
 .makeup-item-value {
     color: var(--dark-color);
     font-weight: 600;
@@ -575,6 +724,7 @@ button {
     transform: translateY(-2px) scale(1.02);
     box-shadow: 0 6px 20px rgba(45, 212, 191, 0.4);
 }
+
 .btn-primary:active:not(:disabled) {
     transform: translateY(0px) scale(1);
     box-shadow: 0 3px 10px rgba(45, 212, 191, 0.3);
@@ -602,6 +752,7 @@ button {
     background-color: #1e293b;
     box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
 }
+
 .btn-dark:active:not(:disabled) {
     transform: translateY(0px);
     box-shadow: 0 3px 10px rgba(15, 23, 42, 0.2);
@@ -626,6 +777,7 @@ button {
     background-color: #ccfbf1;
     transform: translateY(-1px);
 }
+
 .btn-secondary:active:not(:disabled) {
     transform: translateY(0px);
 }
@@ -634,6 +786,7 @@ button {
     background-color: white;
     margin-top: 10px;
 }
+
 .btn-secondary-white:hover:not(:disabled) {
     background-color: #f8fafc;
 }
@@ -649,7 +802,7 @@ button {
     z-index: 10;
     color: var(--dark-color);
     font-weight: 600;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 /* --- Phase 6 Result --- */
@@ -660,6 +813,7 @@ button {
     min-height: 200px;
     margin: 0 auto 25px auto;
 }
+
 #generated-image {
     display: block;
     max-width: 100%;
@@ -670,6 +824,7 @@ button {
     margin: 0;
     transition: opacity 0.3s ease;
 }
+
 #refinement-spinner {
     position: absolute;
     top: 50%;
@@ -689,6 +844,7 @@ button {
     border-radius: 16px;
     text-align: left;
 }
+
 .refinement-title {
     font-size: 18px;
     color: var(--dark-color);
@@ -697,9 +853,11 @@ button {
     align-items: center;
     font-weight: 600;
 }
+
 #refinement-prompt-input {
     width: 100%;
 }
+
 #refine-image-btn {
     margin-top: 0;
     font-size: 16px;
@@ -715,6 +873,7 @@ button {
     color: var(--text-color-light);
     border-color: var(--border-color);
 }
+
 #phase6 .btn-outline:hover:not(:disabled) {
     background-color: #f8fafc;
     color: var(--text-color);
@@ -723,13 +882,15 @@ button {
 
 /* ★★★ カスタムモーダル ★★★ */
 .modal-overlay {
-    display: none; /* デフォルト非表示 */
+    display: none;
+    /* デフォルト非表示 */
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(15, 23, 42, 0.6); /* ダークオーバーレイ */
+    background-color: rgba(15, 23, 42, 0.6);
+    /* ダークオーバーレイ */
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -744,7 +905,8 @@ button {
 
 .modal-content {
     background-color: white;
-    padding: 0; /* ヘッダー/フッターで分けるためゼロ */
+    padding: 0;
+    /* ヘッダー/フッターで分けるためゼロ */
     border-radius: 20px;
     width: 90%;
     max-width: 400px;
@@ -778,7 +940,8 @@ button {
     color: var(--text-color);
     font-size: 16px;
     line-height: 1.6;
-    white-space: pre-wrap; /* 改行を反映 */
+    white-space: pre-wrap;
+    /* 改行を反映 */
 }
 
 .modal-footer {
