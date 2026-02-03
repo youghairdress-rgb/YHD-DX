@@ -77,6 +77,7 @@ async function generateHairstyleImageController(req, res, dependencies) {
 
   // 4. Gemini API リクエストペイロードの作成
   // Model: Corrected to gemini-2.5-flash-image
+  // Model: gemini-2.5-flash-image (Restored per user request - confirmed working previously)
   const modelName = "gemini-2.5-flash-image";
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 

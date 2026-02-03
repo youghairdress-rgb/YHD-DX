@@ -1,0 +1,118 @@
+/* Voice Input Button */
+.btn-voice {
+    position: absolute;
+    top: 5px;
+    /* Top Right */
+    right: 5px;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-voice:hover {
+    background-color: #e2e8f0;
+    color: #334155;
+    transform: translateY(-1px);
+}
+
+.btn-voice:active {
+    transform: translateY(1px);
+}
+
+.btn-voice.listening {
+    background-color: #fee2e2;
+    border-color: #fca5a5;
+    color: #ef4444;
+    animation: pulse-red 1.5s infinite;
+}
+
+/* Upload Container & Preview */
+.inspiration-upload-container {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 5px;
+    /* Reduced padding */
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    background: #f8fafc;
+    min-height: 80px;
+    /* Ultra-Compact */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.inspiration-upload-container:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+#inspiration-image-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+    /* Hidden by default */
+    z-index: 5;
+}
+
+/* When preview is available */
+.inspiration-upload-container.has-preview #inspiration-image-preview {
+    display: block;
+}
+
+.inspiration-upload-container.has-preview .inspiration-upload-text,
+.inspiration-upload-container.has-preview .inspiration-upload-icon-placeholder {
+    display: none;
+    /* Hide placeholder text */
+}
+
+/* Button overlay on preview */
+.inspiration-upload-container.has-preview #inspiration-upload-btn,
+.inspiration-upload-container.has-preview #inspiration-delete-btn {
+    position: absolute;
+    bottom: 10px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.inspiration-upload-container.has-preview #inspiration-upload-btn {
+    right: 70px;
+    /* Adjust based on delete button */
+}
+
+.inspiration-upload-container.has-preview #inspiration-delete-btn {
+    right: 10px;
+    display: inline-block !important;
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}

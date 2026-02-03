@@ -180,6 +180,22 @@ ${colorInstruction}
 
 ${requestPromptPart}
 
+**VISUAL DICTIONARY (Strict Adherence for Hair Lengths):**
+If the Request or Style Description mentions these terms, apply the visual rules exactly:
+- **Berry Short:** Short around ears/nape. Top has movement.
+- **Short:** Longer than Berry Short. Nape short, ears half-covered.
+- **Bob:** Inner/Outer hair same length. Rounded/Thick form.
+- **Short Bob:** Nape ~3cm (neck visible). Surface covers inner hair.
+- **Medium Bob:** Mid-neck to shoulder.
+- **Lob:** Shoulder length. Tips flip out.
+- **Medium:** Shoulder to collarbone.
+- **Semidi:** Collarbone to below collarbone (top of shoulder blade).
+- **Semi-Long:** Below collarbone to mid-shoulder blade.
+- **Long:** Below shoulder blade (bust top).
+- **Super Long:** Below bust top.
+- **Layer:** Stepped layers (High movement).
+- **Gradation:** Overlapping layers (Roundness).
+
 **PHOTOGRAPHY & TEXTURE SPECS (The "Look"):**
 - **Camera:** 85mm Portrait Lens, f/1.8 aperture (creates natural bokeh in background, sharp focus on eyes/hair).
 - **Texture:** 8K resolution, individual keratin strands visible, cuticle reflection (angel ring), subsurface scattering (light passing through hair tips).

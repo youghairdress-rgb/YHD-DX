@@ -13,7 +13,8 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="stylesheet" href="css/components.css">
 
     <!-- LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
@@ -54,15 +55,18 @@
     <!-- Phase 1: Opening -->
     <div id="phase1" class="phase-container">
         <div class="card">
-            <img src="images/YHDlogo2.gif" alt="YHD AI Diagnosis Logo" class="logo">
-            <h1 class="main-title">
-                <font size="34px" color="#2dd4bf">YHD × AI</font><br>『似合わせ』診断
-            </h1>
-            <p class="description">
-                お客様の『似合う』を実現するために<br>
-                AIが分析し、最適なアドバイスを<br>伝えます！
-            </p>
-            <button id="start-btn" class="btn-primary">診断を始める</button>
+            <div class="phase1-left">
+                <img src="images/YHDlogo2.gif" alt="YHD AI Diagnosis Logo" class="logo">
+                <p class="logo-text-1">YHD × AI</p>
+            </div>
+            <div class="phase1-right">
+                <p class="logo-text-2" style="margin-bottom: 10px;">『似合わせ診断』</p>
+                <p class="description">
+                    お客様の『似合う』を実現するために<br>
+                    AIが分析し、最適なアドバイスを<br>伝えます！
+                </p>
+                <button id="start-btn" class="btn-primary">診断を始める</button>
+            </div>
         </div>
     </div>
 
@@ -83,10 +87,13 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label for="user-requests">ご希望のメニューやご要望 (任意)</label>
                 <textarea id="user-requests" class="form-control" rows="4"
                     placeholder="（例）カットとカラー希望。赤みが出ないようにしたい。"></textarea>
+                <button id="voice-input-btn" type="button" class="btn-voice">
+                    <span class="mic-icon">🎤</span> 音声入力
+                </button>
             </div>
 
             <div class="form-group">
@@ -251,125 +258,131 @@
         </div>
     </div>
 
-    <!-- Phase 6: Generated Image -->
-    <div id="phase6" class="phase-container">
-        <div class="card">
-            <h2 class="form-title">HairStyle Composite</h2>
+    <!-- Phase 6: Generated Image (Style Selection) -->
+    <div id="phase6" class="container-fluid phase-container" style="display:none;">
+        <div class="phase-header">
+            <h2 class="phase-title">スタイル選択 (Style Selection)</h2>
+            <button id="back-to-proposal-btn-p6" class="btn-outline-sm">提案に戻る</button>
+        </div>
 
-            <!-- ★ Split Layout for Phase 6 ★ -->
-            <div class="split-container">
-                <!-- Left Column: Configuration -->
-                <div class="split-column-left">
-                    <div id="generation-config-section" class="refinement-section">
-                        <h3 class="refinement-title"><img src="images/ヘアスタイル.png" alt="" class="proposal-icon"> スタイルの選択
-                        </h3>
-                        <!-- ui.js で動的にラジオボタンを生成 -->
-                        <div id="style-selection-group" class="form-group"></div>
+        <div class="phase6-layout-grid">
+            <!-- Col 1: Style List -->
+            <div class="p6-col-style">
+                <h3 class="refinement-title"><img src="images/AI美容師.png" alt="" class="proposal-icon"> スタイル</h3>
+                <div id="style-selection-group" class="form-group scroll-y"></div>
+            </div>
+            <!-- Col 2: Color List -->
+            <div class="p6-col-color">
+                <h3 class="refinement-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> カラー</h3>
+                <div id="color-selection-group" class="form-group scroll-y"></div>
+            </div>
+            <!-- Col 3: Tone & Start -->
+            <div class="p6-col-action">
+                <h3 class="refinement-title"><img src="images/ヘアカラー.png" alt="" class="proposal-icon"> 明るさ</h3>
+                <div class="form-group">
+                    <select id="hair-tone-select" class="form-control">
+                        <option value="">現在の髪色</option>
+                        <option value="Tone 5">Tone 5</option>
+                        <option value="Tone 7">Tone 7</option>
+                        <option value="Tone 9">Tone 9</option>
+                        <option value="Tone 11">Tone 11</option>
+                        <option value="Tone 13">Tone 13</option>
+                        <option value="Tone 15">Tone 15</option>
+                        <option value="Tone 18">Tone 18</option>
+                    </select>
+                </div>
+                <button id="generate-image-btn" class="btn-primary">Composite START</button>
+            </div>
+        </div>
+    </div>
 
-                        <h3 class="refinement-title" style="margin-top: 20px;"><img src="images/ヘアカラー.png" alt=""
-                                class="proposal-icon"> カラーの選択</h3>
-                        <!-- ui.js で動的にラジオボタンを生成 -->
-                        <div id="color-selection-group" class="form-group"></div>
+    <!-- PHASE 7: Refinement (Composite) -->
+    <div id="phase7" class="container-fluid phase-container" style="display:none;">
+        <div class="phase-header">
+            <h2 class="phase-title">微調整 (Refinement)</h2>
+        </div>
 
-                        <h3 class="refinement-title" style="margin-top: 20px;"><img src="images/ヘアカラー.png" alt=""
-                                class="proposal-icon"> 明るさ（トーン）</h3>
-                        <div class="form-group">
-                            <select id="hair-tone-select" class="form-control">
-                                <option value="">現在の髪色</option>
-                                <option value="Tone 5">トーン 5: 自然な黒髪～暗めの栗色</option>
-                                <option value="Tone 7">トーン 7: やや暗めの茶色</option>
-                                <option value="Tone 9">トーン 9: 茶色～明るめの茶色</option>
-                                <option value="Tone 11">トーン 11: 明るい茶色～金髪に近い茶色</option>
-                                <option value="Tone 13">トーン 13: 明るい金髪</option>
-                                <option value="Tone 15">トーン 15: 非常に明るい金髪 (ブリーチ必須)</option>
-                                <option value="Tone 18">トーン 18: 白に近い金髪 (ホワイトブリーチ)</option>
-                            </select>
+        <div class="phase7-layout">
+            <!-- Left: Controls -->
+            <div id="phase7-adjustment-container" class="p7-comp-left">
+                <div class="adjustment-controls horizontal-faders">
+                    <!-- Brightness -->
+                    <div class="fader-container">
+                        <div class="fader-title">明度 (Brightness)</div>
+                        <div class="control-item fader-group">
+                            <span class="fader-icon">💡</span>
+                            <button class="fader-btn-down" data-target="range-brightness" data-step="-1">◀</button>
+                            <input type="range" id="range-brightness" min="5" max="20" value="10"
+                                class="horizontal-fader">
+                            <button class="fader-btn-up" data-target="range-brightness" data-step="1">▶</button>
+                            <span id="label-brightness" class="fader-label-val">10</span>
                         </div>
+                    </div>
 
-                        <button id="generate-image-btn" class="btn-primary">Composite START</button>
+                    <!-- Hue -->
+                    <div class="fader-container">
+                        <div class="fader-title">色相 (Hue)</div>
+                        <div class="control-item fader-group">
+                            <span class="fader-icon">🎨</span>
+                            <button class="fader-btn-down" data-target="range-hue" data-step="-10">◀</button>
+                            <input type="range" id="range-hue" min="0" max="360" value="180" class="horizontal-fader">
+                            <button class="fader-btn-up" data-target="range-hue" data-step="10">▶</button>
+                            <span id="label-hue" class="fader-label-val">180°</span>
+                        </div>
+                    </div>
+
+                    <!-- Saturate -->
+                    <div class="fader-container">
+                        <div class="fader-title">彩度 (Saturation)</div>
+                        <div class="control-item fader-group">
+                            <span class="fader-icon">💧</span>
+                            <button class="fader-btn-down" data-target="range-saturate" data-step="-10">◀</button>
+                            <input type="range" id="range-saturate" min="0" max="200" value="0"
+                                class="horizontal-fader">
+                            <button class="fader-btn-up" data-target="range-saturate" data-step="10">▶</button>
+                            <span id="label-saturate" class="fader-label-val">0%</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Right Column: Result & Adjustments -->
-                <div class="split-column-right">
-                    <!-- Adjustment Container (Initially Hidden) -->
-                    <!-- Note: Inside here, we have another flex layout (Image | Controls). 
-                         If width allows, it will be nested side-by-side. 
-                         If too narrow, flex-wrap handles it. -->
-                    <div id="phase6-adjustment-container"
-                        style="max-width: 100%; margin: 0 auto; padding: 20px; background: #fff; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: none;">
-
-                        <div class="image-preview-wrapper"
-                            style="width: 100%; aspect-ratio: 3/4; border-radius: 15px; overflow: hidden; background: #f0f0f0; margin-bottom: 25px;">
-                            <img id="main-diagnosis-image" src="" alt="Diagnosis Result"
-                                style="width: 100%; height: 100%; object-fit: cover; transition: filter 0.1s linear;">
-                        </div>
-
-                        <div class="adjustment-controls" style="display: flex; flex-direction: column; gap: 20px;">
-
-                            <div class="control-item">
-                                <div
-                                    style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; font-size: 14px;">
-                                    <span>明るさレベル (5〜20)</span>
-                                    <span id="label-brightness" style="color: #81D8D0;">10</span>
-                                </div>
-                                <input type="range" id="range-brightness" min="5" max="20" value="10"
-                                    style="width: 100%; height: 10px; border-radius: 5px; appearance: none; background: linear-gradient(to right, #331a00, #e6c38a, #fffde6); cursor: pointer;">
-                            </div>
-
-                            <div class="control-item">
-                                <div
-                                    style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; font-size: 14px;">
-                                    <span>カラーパレット</span>
-                                    <span id="label-hue" style="color: #81D8D0;">180°</span>
-                                </div>
-                                <input type="range" id="range-hue" min="0" max="360" value="180"
-                                    style="width: 100%; height: 10px; border-radius: 5px; appearance: none; background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); cursor: pointer;">
-                            </div>
-
-                            <div class="control-item">
-                                <div
-                                    style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; font-size: 14px;">
-                                    <span>色の濃さ (0〜100%)</span>
-                                    <span id="label-saturate" style="color: #81D8D0;">0%</span>
-                                </div>
-                                <input type="range" id="range-saturate" min="0" max="200" value="0"
-                                    style="width: 100%; height: 10px; border-radius: 5px; appearance: none; background: linear-gradient(to right, #eee, #81D8D0); cursor: pointer;">
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; margin-top: 30px;">
-                            <button id="btn-reset"
-                                style="flex: 1; padding: 12px; border: none; border-radius: 25px; background: #f0f0f0; font-weight: bold; color: #666; cursor: pointer;">リセット</button>
-                            <button id="btn-save"
-                                style="flex: 1; padding: 12px; border: none; border-radius: 25px; background: #81D8D0; font-weight: bold; color: white; cursor: pointer;">この色で保存</button>
-                        </div>
+                <div class="comp-buttons-area">
+                    <div class="save-buttons-group">
+                        <button id="btn-save" class="btn-primary">保存</button>
+                        <button id="btn-back-style" class="btn-outline">Styleに戻る</button>
+                        <button id="btn-reset" class="btn-dark-outline">リセット</button>
                     </div>
-
-                    <button id="back-to-proposal-btn" class="btn-outline" style="margin-top: 20px;">提案に戻る</button>
-
-                    <button id="close-liff-btn" class="btn-secondary btn-secondary-white no-print">
-                        アプリを終了する
-                    </button>
+                    <!-- Hidden but kept if ref needed logic -->
+                    <button id="save-generated-image-to-db-btn" class="btn-success" style="display:none;">DB保存</button>
+                    <button id="back-to-proposal-btn" class="btn-outline" style="display:none;">提案に戻る</button>
                 </div>
             </div>
 
-            <!-- カスタムモーダル (共通) -->
-            <div id="custom-modal" class="modal-overlay">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 id="modal-title">お知らせ</h3>
-                    </div>
-                    <div class="modal-body">
-                        <p id="modal-message"></p>
-                    </div>
-                    <div class="modal-footer">
-                        <button id="modal-ok-btn" class="btn-primary modal-btn">OK</button>
-                    </div>
+            <!-- Right: Image -->
+            <div class="p7-comp-right">
+                <div class="image-preview-wrapper">
+                    <img id="main-diagnosis-image" src="" alt="Diagnosis Result" style="display:none;">
+                    <!-- Canvas will be inserted here by JS -->
                 </div>
             </div>
+        </div>
+    </div>
 
-            <script src="js/main.js" type="module"></script>
+    <!-- カスタムモーダル (共通) -->
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">お知らせ</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-ok-btn" class="btn-primary modal-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js" type="module"></script>
 </body>
 
 </html>

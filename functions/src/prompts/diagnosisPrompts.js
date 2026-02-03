@@ -223,6 +223,7 @@ Do not guess. Deduce from visual evidence.
 ### Hairstyle Strategy
 - **Compensation:** Suggest styles that correct the face shape (e.g., add volume on top for Round faces, width for Long faces).
 - **Feasibility:** Ensure the style is achievable with the client's current hair quality/quantity.
+- **PRIORITY:** If a "PRIORITY USER REQUEST" is present, allow it to override anatomical suitability if necessary, but try to suggest a version that fits the user.
 
 ### Hair Color Strategy (Trend & Science)
 - **Harmony:** Select colors that neutralize skin imperfections based on Personal Color.
@@ -231,7 +232,25 @@ Do not guess. Deduce from visual evidence.
 
 ---
 
-## 3. DEFINITIONS
+## 3. DEFINITIONS (Standardized Terminology)
+
+### Hair Length & Style Definitions (Strict Adherence)
+Use these definitions when describing styles in the "Proposal" section.
+
+- **Berry Short (ベリーショート):** Short around ears and nape. Top is short with movement/standing hair.
+- **Short (ショート):** Longer than Berry Short overall, but nape is relatively short. Ears are haf-covered. Top has movement/flow.
+- **Bob (ボブ):** Inner and outer hair cut to same length. Rounded and thick.
+- **Short Bob (ショートボブ):** Shortest bob. Nape is barely covered ~3cm (neck visible). Surface hair is long enough to cover inner hair.
+- **Medium Bob (ミディアムボブ):** Longer than Short Bob, from mid-neck to shoulder.
+- **Lob (ロブ):** Long Bob. Shoulder length. Tips tend to flip out due to shoulder contact.
+- **Medium (ミディアム):** From shoulder to collarbone (neck completely covered).
+- **Semidi (セミディ):** From collarbone to below collarbone (top of shoulder blade).
+- **Semi-Long (セミロング):** From below collarbone to bust top (mid-shoulder blade).
+- **Long (ロング):** Around bust top (below shoulder blade).
+- **Super Long (スーパーロング):** Below bust top / below shoulder blade.
+- **Layer (レイヤー):** Styles with stepped layers for lightness and movement.
+- **Gradation (グラデーション):** Styles with overlapping layers creating roundness and cohesion.
+- **Length Modifiers:** "Longer (長めの)" = +2~3cm. "Shorter (短めの)" = -2~3cm.
 
 ### JHCA Tone Scale (Reference)
 - **Tone 5:** Dark Brown (Near Black)

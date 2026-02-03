@@ -15,7 +15,7 @@ import { initializeAppFailure, hideLoadingScreen, setTextContent, compressImage,
 import {
     changePhase, displayDiagnosisResult, displayProposalResult, checkAllFilesUploaded,
     checkProposalSelection,
-    displayGeneratedImage, showModal, toggleLoader
+    displayGeneratedImage, showModal, toggleLoader, drawComposite, resetAdjustments, setupUIListeners, setupFaderButtonListeners
 } from './ui.js';
 import {
     saveImageToGallery, uploadFileToStorageOnly, requestDiagnosis, generateHairstyleImage, refineHairstyleImage, requestFirebaseCustomToken, saveScreenshotToGallery
@@ -44,6 +44,7 @@ const initializeAppProcess = async () => {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+    console.log("[main.js] DOMContentLoaded fired");
     const loadTimeout = setTimeout(() => {
         const loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen && loadingScreen.style.display !== 'none') {
@@ -77,13 +78,31 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             try {
-                if (IS_DEV_MODE && USE_MOCK_AUTH) {
-                    await signInAnonymously(appState.firebase.auth);
-                } else {
-                    const { customToken } = await requestFirebaseCustomToken(liffResult.accessToken);
-                    if (customToken) await signInWithCustomToken(appState.firebase.auth, customToken);
-                }
-            } catch (e) { console.error("Auth Error:", e); }
+                const performAuth = async () => {
+                    if (IS_DEV_MODE && USE_MOCK_AUTH) {
+                        await signInAnonymously(appState.firebase.auth);
+                    } else {
+                        console.log("[main.js] Requesting Custom Token...");
+                        const { customToken } = await requestFirebaseCustomToken(liffResult.accessToken);
+                        if (customToken) {
+                            console.log("[main.js] Signing in with Custom Token...");
+                            await signInWithCustomToken(appState.firebase.auth, customToken);
+                        }
+                    }
+                };
+
+                // Timeout Wrapper (4000ms) - Prevent Hang
+                const timeoutAuth = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Firebase Auth Timed out")), 4000)
+                );
+
+                await Promise.race([performAuth(), timeoutAuth]);
+                console.log("[main.js] Auth Completed");
+
+            } catch (e) {
+                console.error("[main.js] Auth flow failed or timed out:", e);
+                // Proceed anyway - App handles unauth state or retries later
+            }
         } else {
             return;
         }
@@ -98,7 +117,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 
-// --- 2. UI & ロジック ---
+// (Function changePhase removed - using imported version from ui.js)
+// (Function switchPhase6Tab removed - obsolete)
 
 function initializeAppUI() {
     setupEventListeners();
@@ -145,22 +165,127 @@ function setupEventListeners() {
         changePhase('phase5');
     });
 
-    document.getElementById('move-to-phase6-btn')?.addEventListener('click', () => changePhase('phase6'));
+    document.getElementById('move-to-phase6-btn')?.addEventListener('click', () => {
+        changePhase('phase6');
+        // No tab switching needed anymore
+    });
 
-    document.getElementById('generate-image-btn')?.addEventListener('click', handleImageGenerationRequest);
+    // Phase 6 Generation -> Move to Phase 7
+    document.getElementById('generate-image-btn')?.addEventListener('click', async () => {
+        // Go to Phase 7 first
+        changePhase('phase7');
+        // Then Start Generation (Async)
+        await handleImageGenerationRequest();
+    });
+
+    // Phase 6 Tabs - DELETED/OBSOLETE
+    // document.getElementById('tab-btn-style')?.addEventListener('click', ...);
+    // document.getElementById('tab-btn-composite')?.addEventListener('click', ...);
+
+    // Faders (Direct Input) - Keep existing logic, IDs didn't change (just moved)
+    ['range-brightness', 'range-hue', 'range-saturate'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => {
+            // Ensure this calls the function that updates the phase 7 canvas
+            if (typeof drawComposite === 'function') drawComposite();
+        });
+    });
+
+    // Phase 7 Buttons
+    document.getElementById('btn-reset')?.addEventListener('click', () => {
+        if (typeof resetAdjustments === 'function') resetAdjustments();
+    });
+
+    document.getElementById('btn-save')?.addEventListener('click', handleSaveGeneratedImage);
+
+    document.getElementById('btn-back-style')?.addEventListener('click', () => changePhase('phase6'));
+
     document.getElementById('refine-image-btn')?.addEventListener('click', handleImageRefinementRequest);
-    document.getElementById('save-generated-image-to-db-btn')?.addEventListener('click', handleSaveGeneratedImage);
+    // save-generated-image-to-db-btn removed/hidden in new UI
 
     document.getElementById('back-to-diagnosis-btn')?.addEventListener('click', () => changePhase('phase4'));
     document.getElementById('back-to-proposal-btn')?.addEventListener('click', () => changePhase('phase5'));
+    document.getElementById('back-to-proposal-btn-p6')?.addEventListener('click', () => changePhase('phase5')); // New button in P6 header
     document.getElementById('close-liff-btn')?.addEventListener('click', () => liff?.closeWindow());
 
     // ★★★ 修正: スクショボタンのイベントリスナー ★★★
     document.getElementById('save-phase4-btn')?.addEventListener('click', () => captureAndSave("#phase4 .card", "AI診断結果"));
     document.getElementById('save-phase5-btn')?.addEventListener('click', () => captureAndSave("#phase5 .card", "AI提案内容"));
+
+    // ★ Voice Input Init
+    setupVoiceInput();
+
+    // ★ Fader Buttons logic
+    setupFaderButtonListeners();
 }
 
-// --- Handlers ---
+function setupVoiceInput() {
+    const minBtn = document.getElementById('voice-input-btn');
+    const textArea = document.getElementById('user-requests');
+    if (!minBtn || !textArea) return;
+
+    // Check API support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        minBtn.style.display = 'none'; // Hide if not supported
+        console.warn("Speech Recognition API not supported.");
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    let isListening = false;
+
+    minBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent form submit
+        e.stopPropagation();
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    });
+
+    recognition.onstart = () => {
+        isListening = true;
+        minBtn.classList.add('listening');
+        minBtn.innerHTML = '<span class="mic-icon">🔴</span> 聞いています...';
+    };
+
+    recognition.onend = () => {
+        isListening = false;
+        minBtn.classList.remove('listening');
+        minBtn.innerHTML = '<span class="mic-icon">🎤</span> 音声入力';
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+            // Append with newline if not empty
+            textArea.value += (textArea.value ? '\\n' : '') + transcript;
+            textArea.dispatchEvent(new Event('change'));
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        isListening = false;
+        minBtn.classList.remove('listening');
+        minBtn.innerHTML = '<span class="mic-icon">⚠️</span> エラー';
+
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            alert("マイクの使用が許可されていません。\nブラウザの設定（アドレスバーの鍵マーク等）からマイクへのアクセスを許可してください。");
+        } else if (event.error === 'network') {
+            alert("ネットワークエラーが発生しました。接続を確認してください。");
+        }
+
+        setTimeout(() => {
+            minBtn.innerHTML = '<span class="mic-icon">🎤</span> 音声入力';
+        }, 3000);
+    };
+}
 
 // ★★★ 修正: スクリーンショット保存関数 ★★★
 async function captureAndSave(selector, title) {
@@ -195,36 +320,56 @@ async function handleInspirationSelect(e) {
     if (!file) return;
     const btn = document.getElementById('inspiration-upload-btn');
     const status = document.getElementById('inspiration-upload-status');
+    const preview = document.getElementById('inspiration-image-preview');
 
-    if (status) status.textContent = '処理中...';
+    // ★ Immediate Preview (UX Enhancement)
+    const localUrl = URL.createObjectURL(file);
+    if (preview) preview.src = localUrl;
+    const container = document.getElementById('inspiration-upload-container');
+    if (container) container.classList.add('has-preview');
+
+    if (status) status.textContent = 'アップロード中...';
     if (btn) btn.disabled = true;
+    document.getElementById('inspiration-upload-title').textContent = '写真を選択'; // Keep title valid
 
     try {
         const processed = file.type.startsWith('image/') ? await compressImage(file) : file;
         const url = await uploadFileToStorageOnly(appState.userProfile.firebaseUid, processed, 'item-inspiration-photo');
 
-        const localUrl = URL.createObjectURL(processed);
-        await saveImageToGallery(
-            appState.userProfile.firebaseUid,
-            localUrl,
-            'inspiration', 'inspiration', ''
-        );
-        URL.revokeObjectURL(localUrl);
+        // Note: We already showed the preview. Just update state.
+        // We can save the localUrl to gallery too if needed, but we have the remote URL now.
 
+        // Save to Gallery (Background)
+        saveImageToGallery(
+            appState.userProfile.firebaseUid,
+            localUrl, // Using local blob for gallery thumbnail generation speed if applicable? No, API usually needs base64 or blob.
+            'inspiration', 'inspiration', ''
+        ).catch(e => console.warn("Gallery save background error:", e));
+
+        // Update State
         appState.uploadedFileUrls['item-inspiration-photo'] = url;
         appState.inspirationImageUrl = url;
 
-        document.getElementById('inspiration-image-preview').src = url;
+        // Finalize UI
+        if (preview) preview.src = url; // Switch to remote URL to be safe, or keep local? Remote is better for persistence.
         document.getElementById('inspiration-upload-title').textContent = '選択済み';
         if (status) status.textContent = 'タップして変更';
         document.getElementById('inspiration-delete-btn').style.display = 'inline-block';
         if (btn) { btn.textContent = '変更'; btn.disabled = false; }
+
     } catch (err) {
         console.error(err);
         showModal("エラー", "アップロード失敗: " + err.message);
         if (btn) btn.disabled = false;
+        // Revert UI on failure?
+        if (status) status.textContent = 'タップして画像を選択';
+        if (preview) preview.removeAttribute('src');
+        const container = document.getElementById('inspiration-upload-container');
+        if (container) container.classList.remove('has-preview');
     } finally {
         if (e && e.target) e.target.value = null;
+        // Don't revoke URL immediately if we are using it, but browser handles it eventually.
+        // URL.revokeObjectURL(localUrl); logic is tricky if assigned to src.
     }
 }
 
@@ -232,6 +377,7 @@ function handleInspirationDelete() {
     appState.uploadedFileUrls['item-inspiration-photo'] = null;
     appState.inspirationImageUrl = null;
     document.getElementById('inspiration-image-preview').removeAttribute('src');
+    document.getElementById('inspiration-upload-container').classList.remove('has-preview');
     document.getElementById('inspiration-upload-title').textContent = '写真を選択';
     document.getElementById('inspiration-delete-btn').style.display = 'none';
     document.getElementById('inspiration-upload-btn').textContent = '選択';
