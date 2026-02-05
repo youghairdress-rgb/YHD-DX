@@ -135,6 +135,8 @@ function setupEventListeners() {
         const g = document.querySelector('input[name="gender"]:checked');
         if (g) appState.gender = g.value;
         changePhase('phase3');
+        // Check cloud status immediately when entering Phase 3
+        checkCloudUploads();
     });
 
     const inspInput = document.getElementById('inspiration-image-input');
@@ -149,7 +151,15 @@ function setupEventListeners() {
         e.stopPropagation(); handleInspirationDelete();
     });
 
+    // Phase 3 Viewer Listeners
+    document.getElementById('reload-viewer-btn')?.addEventListener('click', checkCloudUploads);
+    document.getElementById('request-diagnosis-btn-viewer')?.addEventListener('click', handleDiagnosisRequest);
+
+    // Legacy upload listeners removed/disabled for Phase 3 (kept for Phase 2 inspiration if needed)
     document.querySelectorAll('.upload-item').forEach(item => {
+        // Only attach if it's NOT a phase 3 item (though classes might be shared, Phase 3 structure changed)
+        if (item.closest('#phase3')) return;
+
         const btn = item.querySelector('button');
         const input = item.querySelector('.file-input');
         if (btn && input) {
@@ -431,6 +441,82 @@ async function handleDiagnosisRequest() {
     } catch (err) {
         showModal("診断エラー", err.message);
         changePhase('phase3');
+    }
+}
+
+// --- Phase 3 Viewer Logic ---
+async function checkCloudUploads() {
+    const uid = appState.userProfile.firebaseUid;
+    if (!uid) {
+        alert("ユーザIDが不明です。");
+        return;
+    }
+
+    const items = [
+        'item-front-photo', 'item-side-photo', 'item-back-photo',
+        'item-front-video', 'item-back-video'
+    ];
+
+    // Required items: All photos + videos
+    // Map internal IDs to Storage Paths: guest_uploads/{uid}/{itemId}
+
+    let loadedCount = 0;
+    const btn = document.getElementById('reload-viewer-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "確認中...";
+    }
+
+    for (const itemId of items) {
+        const viewId = 'view-' + itemId;
+        const viewEl = document.getElementById(viewId);
+        if (!viewEl) continue;
+
+        try {
+            // Check Guest Uploads First
+            const storagePath = `guest_uploads/${uid}/${itemId}`;
+            const storageRef = ref(appState.firebase.storage, storagePath);
+            const url = await getDownloadURL(storageRef);
+
+            // Success
+            appState.uploadedFileUrls[itemId] = url;
+
+            // Update UI
+            viewEl.classList.remove('pending');
+            viewEl.classList.add('ready');
+            viewEl.querySelector('.status-badge').textContent = 'OK';
+
+            const thumb = viewEl.querySelector('.viewer-thumbnail');
+            thumb.innerHTML = ''; // Clear icon
+
+            if (itemId.includes('video')) {
+                thumb.innerHTML = `<div style="position:absolute;z-index:1">▶️</div><video src="${url}" muted style="width:100%;height:100%;object-fit:cover"></video>`;
+            } else {
+                thumb.innerHTML = `<img src="${url}" alt="OK">`;
+            }
+            loadedCount++;
+
+        } catch (e) {
+            // Not found or error
+            // console.log(`[Check] ${itemId} not found:`, e.code);
+            viewEl.classList.remove('ready');
+            viewEl.classList.add('pending');
+            viewEl.querySelector('.status-badge').textContent = '未アップロード';
+        }
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = "再読み込み";
+    }
+
+    const nextBtn = document.getElementById('request-diagnosis-btn-viewer');
+    if (nextBtn) {
+        if (loadedCount === items.length) {
+            nextBtn.disabled = false;
+        } else {
+            nextBtn.disabled = true;
+        }
     }
 }
 

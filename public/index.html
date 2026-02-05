@@ -54,18 +54,16 @@
 
     <!-- Phase 1: Opening -->
     <div id="phase1" class="phase-container">
-        <div class="card">
-            <div class="phase1-left">
-                <img src="images/YHDlogo2.gif" alt="YHD AI Diagnosis Logo" class="logo">
-                <p class="logo-text-1">YHD × AI</p>
-            </div>
-            <div class="phase1-right">
-                <p class="logo-text-2" style="margin-bottom: 10px;">『似合わせ診断』</p>
+        <div class="phase1-content">
+            <img src="images/YHDlogo2.gif" alt="YHD AI Diagnosis Logo" class="logo">
+            <div class="phase1-text-group">
+                <h1 class="logo-text-1">YHD × AI</h1>
+                <h2 class="logo-text-2">『似合わせ診断』</h2>
                 <p class="description">
                     お客様の『似合う』を実現するために<br>
-                    AIが分析し、最適なアドバイスを<br>伝えます！
+                    AIが分析し、最適なアドバイスを伝えます！
                 </p>
-                <button id="start-btn" class="btn-primary">診断を始める</button>
+                <button id="start-btn" class="btn-primary start-btn-final">診断を始める</button>
             </div>
         </div>
     </div>
@@ -98,7 +96,7 @@
 
             <div class="form-group">
                 <label for="inspiration-image-input">ご希望のスタイル写真 (任意)</label>
-                <input type="file" id="inspiration-image-input" class="file-input" accept="image/*" hidden>
+                <input type="file" id="inspiration-image-input" class="file-input visually-hidden" accept="image/*">
 
                 <div id="inspiration-upload-container" class="inspiration-upload-container" role="button" tabindex="0">
                     <img id="inspiration-image-preview" alt="プレビュー">
@@ -113,55 +111,70 @@
                 </div>
             </div>
 
-            <button id="next-to-upload-btn" class="btn-dark">撮影に進む</button>
+            <button id="next-to-upload-btn" class="btn-primary">For Materials</button>
         </div>
     </div>
 
-    <!-- Phase 3: Upload -->
     <div id="phase3" class="phase-container">
         <div class="card">
-            <h2 class="form-title">写真・動画撮影</h2>
-            <p class="description" style="margin-bottom: 20px;">AI診断のため、指定されたアングルから撮影してください。</p>
-            <div class="upload-list">
-                <div id="item-front-photo" class="upload-item">
-                    <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
-                    <div class="upload-icon">📷</div>
-                    <div class="upload-text"><strong>写真：正面</strong><span>顔がはっきりと</span></div><button
-                        class="btn-outline">撮影</button>
-                </div>
-                <div id="item-side-photo" class="upload-item">
-                    <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
-                    <div class="upload-icon">📷</div>
-                    <div class="upload-text"><strong>写真：サイド</strong><span>横顔と髪の長さ</span></div><button
-                        class="btn-outline">撮影</button>
-                </div>
-                <div id="item-back-photo" class="upload-item">
-                    <input type="file" class="file-input" accept="image/*" capture="environment" hidden>
-                    <div class="upload-icon">📷</div>
-                    <div class="upload-text"><strong>写真：バック</strong><span>後ろ全体の髪型</span></div><button
-                        class="btn-outline">撮影</button>
-                </div>
-                <div id="item-front-video" class="upload-item">
-                    <input type="file" class="file-input" accept="video/*" capture="environment" hidden>
-                    <div class="upload-icon">🎬</div>
-                    <div class="upload-text">
-                        <strong>動画：正面 (3秒)</strong>
-                        <span>顔を左右に動かす</span>
+            <h2 class="form-title">Materials</h2>
+
+            <div class="viewer-grid" id="phase3-viewer-grid">
+                <!-- Row 1: Photos -->
+                <!-- Photo:Front -->
+                <div class="viewer-item pending" id="view-item-front-photo">
+                    <div class="viewer-label">Photo:Front</div>
+                    <div class="viewer-thumbnail">
+                        <span>📷</span>
                     </div>
-                    <button class="btn-outline">撮影</button>
+                    <span class="status-badge">Pending</span>
                 </div>
-                <div id="item-back-video" class="upload-item">
-                    <input type="file" class="file-input" accept="video/*" capture="environment" hidden>
-                    <div class="upload-icon">🎬</div>
-                    <div class="upload-text">
-                        <strong>動画：バック (3秒)</strong>
-                        <span>髪全体の動き</span>
+                <!-- Photo:Side -->
+                <div class="viewer-item pending" id="view-item-side-photo">
+                    <div class="viewer-label">Photo:Side</div>
+                    <div class="viewer-thumbnail">
+                        <span>📷</span>
                     </div>
-                    <button class="btn-outline">撮影</button>
+                    <span class="status-badge">Pending</span>
+                </div>
+                <!-- Photo:Back -->
+                <div class="viewer-item pending" id="view-item-back-photo">
+                    <div class="viewer-label">Photo:Back</div>
+                    <div class="viewer-thumbnail">
+                        <span>📷</span>
+                    </div>
+                    <span class="status-badge">Pending</span>
+                </div>
+
+                <!-- Row 2: Videos & Actions -->
+                <!-- Movie:Front -->
+                <div class="viewer-item pending" id="view-item-front-video">
+                    <div class="viewer-label">Video:Front</div>
+                    <div class="viewer-thumbnail">
+                        <span>🎬</span>
+                    </div>
+                    <span class="status-badge">Pending</span>
+                </div>
+                <!-- Movie:Back -->
+                <div class="viewer-item pending" id="view-item-back-video">
+                    <div class="viewer-label">Video:Back</div>
+                    <div class="viewer-thumbnail">
+                        <span>🎬</span>
+                    </div>
+                    <span class="status-badge">Pending</span>
+                </div>
+
+                <!-- Action Area (Placed in Grid) -->
+                <div class="viewer-actions-cell">
+                    <button id="reload-viewer-btn" class="btn-secondary">Reload</button>
+                    <button id="request-diagnosis-btn-viewer" class="btn-primary" disabled>Start Diagnosis</button>
+                    <p class="status-note">※Waiting for all materials</p>
                 </div>
             </div>
-            <button id="request-diagnosis-btn" class="btn-dark btn-disabled" disabled>AI診断をリクエスト</button>
         </div>
+    </div>
+    <button id="request-diagnosis-btn" class="btn-dark btn-disabled" disabled>AI診断をリクエスト</button>
+    </div>
     </div>
 
     <!-- Phase 3.5: Loading -->

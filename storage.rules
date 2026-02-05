@@ -22,6 +22,12 @@ service firebase.storage {
       allow read: if true;
       allow write: if request.auth.uid == userId || isAdmin();
     }
+    
+    // ★★★ New: Guest Uploads for Mobile Page (Anonymous) ★★★
+    match /guest_uploads/{folderId}/{allPaths=**} {
+      allow read: if true; // Public read (iPad needs to read)
+      allow write: if request.auth != null; // Any auth'd user (incl. Anon)
+    }
     // ★★★ 修正ここまで ★★★
 
     // --- (参考) 古いルールパス ---

@@ -1,12 +1,12 @@
 /* 基本設定 */
 :root {
-    --primary-color: #2dd4bf;
+    --primary-color: #0ABAB5;
     /* ティファニーブルー */
-    --primary-color-light: #a7f3d0;
+    --primary-color-light: #E0F2F1;
     /* 明るいティファニーブルー系 */
-    --primary-color-lighter: #f0fdfa;
+    --primary-color-lighter: #F5FCFC;
     /* ティファニーブルー系 (ホバー/選択背景) */
-    --primary-color-dark: #14b8a6;
+    --primary-color-dark: #008782;
     /* ティファニーブルー系 (暗め) */
 
     --dark-color: #0f172a;
@@ -28,6 +28,18 @@
 }
 
 /* 全体のフォントとベーススタイル */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
 body {
     font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
     margin: 0;
@@ -105,7 +117,7 @@ body {
         }
     }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 1280px) {
         .split-container {
             gap: 50px;
         }
@@ -197,29 +209,234 @@ body {
     position: relative;
 }
 
-/* --- Phase 1 Styles --- */
-.logo {
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    margin: 0 auto 20px auto;
-    display: block;
-    object-fit: cover;
+/* --- Phase 1 Styles (Glamorous & Centered) --- */
+#phase1 {
+    height: 100vh;
+    /* Fallback */
+    height: 100dvh;
+    /* For iOS Safari (Address bar handling) */
+    width: 100%;
+    /* Use % to avoid scrollbar issues */
+    overflow: hidden;
+    /* No scroll */
+    display: flex !important;
+    /* Ensure flex for centering */
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 50%, #fff 100%);
+    /* Elegant Gradient */
+    position: fixed;
+    /* Fix to viewport */
+    top: 0;
+    left: 0;
+    z-index: 100;
 }
 
-.main-title {
-    font-size: 20px;
-    color: var(--dark-color);
+.phase1-content {
+    text-align: center;
+    width: 100%;
+    max-width: 900px;
+    padding: 20px;
+    box-sizing: border-box;
+    /* Avoid padding causing overflow */
+    animation: fadeInUp 1s ease-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Center vertically in the content box */
+}
+
+/* Wrapper for text elements to enable switching layout direction */
+.phase1-text-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.logo {
+    width: 230px;
+    /* User Request: 230px */
+    height: 230px;
+    border-radius: 50%;
+    margin: 0 auto 30px auto;
+    display: block;
+    object-fit: cover;
+    border: 6px solid #fff;
+    /* Thicker border */
+    box-shadow: 0 10px 40px rgba(45, 212, 191, 0.4);
+    /* Glowing shadow */
+    animation: pulseLogo 3s infinite ease-in-out;
+}
+
+.logo-text-1 {
+    font-family: 'Inter', sans-serif;
+    font-size: 96px;
+    /* User Request: 3x (~32px -> 96px) */
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--primary-color-dark);
+    /* Fallback color */
+    margin: 0;
+    background: -webkit-linear-gradient(45deg, #0f766e, #2dd4bf);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 5px 20px rgba(45, 212, 191, 0.3);
+    /* Shadow might conflict with transparent text in some browsers */
+    line-height: 1.1;
+    max-width: 100%;
+    /* Prevent overflow */
+}
+
+.logo-text-2 {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 48px;
+    /* User Request: 2x (~24px -> 48px) */
     font-weight: 700;
-    margin-bottom: 10px;
-    line-height: 36px;
+    color: #334155;
+    margin: 20px 0 40px 0;
+    letter-spacing: 1px;
 }
 
 .description {
-    color: var(--text-color-light);
-    line-height: 1.7;
-    margin-bottom: 35px;
-    font-size: 15px;
+    color: #64748b;
+    line-height: 1.8;
+    margin-bottom: 60px;
+    font-size: 18px;
+    /* Slight increase */
+    font-weight: 500;
+    text-align: center;
+    /* Explicit Center */
+    width: 100%;
+}
+
+.start-btn-final {
+    padding: 30px 80px;
+    font-size: 32px;
+    letter-spacing: 1px;
+    box-shadow: 0 10px 30px rgba(45, 212, 191, 0.4);
+    transition: transform 0.3s, box-shadow 0.3s;
+    border-radius: 50px;
+    width: auto;
+    min-width: 300px;
+    /* Ensure not full width by default */
+}
+
+.start-btn-final:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(45, 212, 191, 0.6);
+}
+
+@keyframes floatUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulseLogo {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 10px 40px rgba(45, 212, 191, 0.4);
+    }
+
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0 15px 50px rgba(45, 212, 191, 0.6);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 10px 40px rgba(45, 212, 191, 0.4);
+    }
+}
+
+/* --- Landscape Optimization (Universal) --- */
+/* Apply Vertical Stack Layout to ALL Landscape screens (PC & Tablet) */
+@media (orientation: landscape) {
+
+    /* Main Container: Explicitly Center Everything */
+    .phase1-content {
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        /* CRITICAL: Prevent Stretching */
+        gap: 1vh !important;
+        /* Reduced gap */
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        padding: 1vh 0 !important;
+        /* Minimal padding */
+        transform: none !important;
+        margin: 0 !important;
+    }
+
+    /* Logo: Reduced from 45vh to 35vh */
+    .logo {
+        height: 35vh !important;
+        width: 35vh !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        margin: 0 0 1vh 0 !important;
+        /* Small bottom margin */
+        border: 0.5vh solid #fff !important;
+    }
+
+    .phase1-text-group {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        /* Center children */
+        width: 100% !important;
+        gap: 0.5vh !important;
+    }
+
+    /* Title: Reduced from 18vh to 14vh */
+    .logo-text-1 {
+        font-size: 14vh !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+        width: auto !important;
+    }
+
+    /* Subtitle: Reduced from 7vh to 6vh */
+    .logo-text-2 {
+        font-size: 6vh !important;
+        margin: 0.5vh 0 !important;
+    }
+
+    /* Description: Adjusted margin and size */
+    .description {
+        text-align: center !important;
+        font-size: 2.5vh !important;
+        margin: 0.5vh 0 2vh 0 !important;
+        /* Reduced bottom margin significantly */
+        line-height: 1.4 !important;
+        max-width: 90% !important;
+    }
+
+    /* Button: Adjusted padding and font size */
+    .start-btn-final {
+        width: auto !important;
+        /* Do not stretch */
+        align-self: center !important;
+        /* Double safety */
+        padding: 2vh 8vh !important;
+        /* Reduced padding */
+        font-size: 4vh !important;
+        border-radius: 10vh !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        max-width: 90% !important;
+    }
 }
 
 /* --- Form Styles --- */
@@ -266,6 +483,9 @@ body {
     color: var(--text-color-light);
     cursor: not-allowed;
 }
+
+/* --- Phase 2 Landscape Optimization (Two Columns) --- */
+
 
 /* --- Inspiration Upload Styles (Phase 2) --- */
 .inspiration-upload-container {
@@ -1063,70 +1283,68 @@ button {
         height: auto;
     }
 
-    /* --- Phase 1: Opening (Side-by-Side) --- */
-    #phase1 .card {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-around;
-        /* Distribute space */
-        gap: 20px;
-        text-align: left;
-    }
-
-    .phase1-left {
+    /* --- Phase 1: Opening (Vertical Stack for Landscape) --- */
+    #phase1 .phase1-content {
         display: flex;
         flex-direction: column;
         align-items: center;
-        text-align: center;
-        flex: 1;
-    }
-
-    .phase1-right {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
         justify-content: center;
-        flex: 1.5;
+        height: 100%;
+        width: 100%;
+        gap: 1vh;
+        /* Tight gap */
+        text-align: center;
     }
 
+    /* Remove phantom classes */
+    .phase1-left,
+    .phase1-right {
+        display: none;
+    }
+
+    /* Logo Scaling */
     #phase1 .logo {
-        width: 120px;
-        /* Larger */
-        height: 120px;
-        margin: 0 0 5px 0 !important;
-        /* Closer to text */
+        width: 35vh !important;
+        height: 35vh !important;
+        max-width: 250px;
+        max-height: 250px;
+        margin: 0 0 1vh 0 !important;
+        object-fit: contain;
     }
 
+    /* Text Scaling */
     .logo-text-1 {
-        font-size: 20px !important;
-        font-weight: 700;
-        color: var(--primary-color);
-        margin-bottom: 0 !important;
+        font-size: 10vh !important;
+        /* Large title */
+        line-height: 1;
+        margin-bottom: 0.5vh !important;
         margin-top: 0 !important;
     }
 
     .logo-text-2 {
-        font-size: 18px !important;
-        font-weight: 700;
-        color: var(--dark-color);
-        margin-bottom: 10px !important;
-        text-align: center;
+        font-size: 5vh !important;
+        margin-bottom: 1vh !important;
+        line-height: 1.2;
     }
 
     #phase1 .description {
-        margin-bottom: 15px !important;
-        font-size: 14px !important;
-        white-space: normal !important;
-        -webkit-line-clamp: unset !important;
-        line-clamp: unset !important;
-        overflow: visible !important;
-        text-align: left;
-        width: 100%;
+        font-size: 2.5vh !important;
+        margin-bottom: 2vh !important;
+        width: 80%;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.4;
     }
 
+    /* Button Styling */
     #phase1 .btn-primary {
-        width: 100% !important;
-        margin-top: 0 !important;
+        width: auto !important;
+        min-width: 200px;
+        padding: 1.5vh 5vh !important;
+        font-size: 3vh !important;
+        margin-top: 1vh !important;
+        border-radius: 50px;
+        /* Rounded pill style if not already */
     }
 
     /* --- Phase 2: Profile (2-Column Grid) --- */
@@ -1134,33 +1352,39 @@ button {
     #phase2 .card {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto 1fr;
-        gap: 2px 15px;
-        /* Minimal Gap */
-        align-items: start;
+        grid-template-rows: auto auto auto auto auto;
+        /* No 1fr to prevent height forcing */
+        gap: 1.5vh 3vh;
+        align-items: stretch;
+        /* Stretch items */
         text-align: left;
         position: relative;
-        padding-bottom: 25px !important;
-        /* Minimal space for button */
-        height: 100%;
-        overflow-y: hidden !important;
+        padding-bottom: 2vh !important;
+        height: auto;
+        /* Auto height, not 100% fixed */
+        overflow-y: visible;
         overflow-x: hidden;
+        max-width: 900px;
+        margin: 0 auto;
     }
 
     #phase2 .form-group {
-        margin-bottom: 2px !important;
+        margin-bottom: 0 !important;
     }
 
     #phase2 label {
-        font-size: 9px !important;
-        margin-bottom: 0px !important;
+        font-size: 1.8vh !important;
+        /* Consistent scaling */
+        margin-bottom: 0.5vh !important;
         display: block;
     }
 
     #phase2 input[type="text"] {
-        padding: 2px 5px !important;
-        font-size: 10px !important;
-        height: 22px !important;
+        padding: 1vh;
+        font-size: 2vh !important;
+        height: auto !important;
+        min-height: 52px;
+        /* Match gender height */
     }
 
     /* Compact Radio Buttons */
@@ -1168,21 +1392,26 @@ button {
         gap: 10px !important;
     }
 
+    #phase2 .gender-selection {
+        min-height: 52px;
+        box-sizing: border-box;
+    }
+
     #phase2 .radio-group label {
-        font-size: 11px !important;
-        padding: 4px 10px !important;
+        font-size: 1.8vh !important;
+        padding: 1vh !important;
     }
 
     /* Header spans full width */
     #phase2 .form-title {
         grid-column: 1 / -1;
         grid-row: 1;
-        margin-bottom: 2px !important;
-        font-size: 12px !important;
+        margin-bottom: 1vh !important;
+        font-size: 3vh !important;
         text-align: center;
     }
 
-    /* Left Column: Name(1), Gender(2), Inspiration(4) */
+    /* Left Column: Name(1), Gender(2), Requests(3) */
     #phase2 .form-group:nth-of-type(1) {
         /* Name */
         grid-column: 1;
@@ -1195,47 +1424,55 @@ button {
         grid-row: 3;
     }
 
-    #phase2 .form-group:nth-of-type(4) {
-        /* Inspiration (Last in HTML) */
-        grid-column: 1;
-        grid-row: 4;
-    }
-
-    /* Right Column: Requests(3) */
     #phase2 .form-group:nth-of-type(3) {
         /* Requests */
-        grid-column: 2;
-        grid-row: 2 / 5;
-        /* Span rows */
+        grid-column: 1;
+        grid-row: 4;
         display: flex;
         flex-direction: column;
-        height: 100%;
         margin-bottom: 0 !important;
     }
 
-    #phase2 .form-group:nth-of-type(3) textarea {
-        flex: 1;
-        min-height: 40px;
-        /* Minimal height */
-        resize: none;
-        padding: 5px;
-        font-size: 10px;
+    /* Right Column: Inspiration(4) - Spans rows 2-4 */
+    #phase2 .form-group:nth-of-type(4) {
+        /* Inspiration (Last in HTML) */
+        grid-column: 2;
+        grid-row: 2 / 5;
+        display: flex;
+        flex-direction: column;
     }
 
-    /* Absolute Position Button in Bottom Right */
+    #phase2 .inspiration-upload-container {
+        flex-grow: 1;
+        min-height: 30vh;
+        /* Taller area */
+        height: auto;
+    }
+
+    #phase2 .form-group:nth-of-type(3) textarea {
+        flex-grow: 0;
+        /* Don't expand infinitely */
+        height: 80px;
+        /* Fixed compact height */
+        min-height: 0;
+        resize: none;
+        padding: 1vh;
+        font-size: 2vh;
+    }
+
+    /* Button: Bottom Center - Grid Flow (Not Absolute) */
     #phase2 #next-to-upload-btn {
-        position: absolute;
-        bottom: 5px;
-        right: 15px;
-        width: auto !important;
-        min-width: 120px;
-        font-size: 11px !important;
-        padding: 4px 10px !important;
-        margin: 0 !important;
-        z-index: 10;
-        grid-column: auto;
-        /* Reset grid */
-        grid-row: auto;
+        grid-column: 1 / -1;
+        grid-row: 5;
+        position: static;
+        /* Reset absolute */
+        width: 50% !important;
+        min-width: 200px;
+        margin: 2vh auto 0 auto !important;
+        font-size: 2.5vh !important;
+        padding: 1.5vh 3vh !important;
+        display: block !important;
+        transform: none !important;
     }
 
     /* --- Phase 3: Upload (Horizontal Row) --- */
@@ -1700,7 +1937,8 @@ button {
     /* --- Phase 7 Refinement Layout --- */
     .phase7-layout {
         display: grid;
-        grid-template-columns: 350px 1fr;
+        grid-template-columns: 320px 1fr;
+        /* Optimized for iPad (1024px): 320px controls + flex image */
         gap: 20px;
         /* User Request: Allow scroll within this container */
         height: auto;
@@ -2030,3 +2268,164 @@ button {
 }
 
 /* End of Styles */
+
+/* --- Phase 3: Viewer Mode Styles --- */
+.viewer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    /* 3 Columns */
+    grid-template-rows: auto auto;
+    /* 2 Rows */
+    gap: 1.5vh;
+    width: 100%;
+    height: 100%;
+    /* Fill space */
+    margin-bottom: 0;
+}
+
+.viewer-item {
+    background: #fff;
+    border-radius: 8px;
+    /* Slightly sharper for premium feel */
+    border: 1px solid var(--border-color);
+    /* Use variable */
+    padding: 1vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Center content */
+    aspect-ratio: auto;
+    /* Remove fixed aspect ratio, let grid handle */
+    height: 100%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    /* Subtle shadow */
+}
+
+/* Status colors update for cleaner look */
+.viewer-item.ready {
+    border-color: var(--primary-color);
+    background-color: #fbfdfd;
+    /* Very subtle tint */
+}
+
+.viewer-item.pending {
+    border-color: #e2e8f0;
+    background-color: #f8fafc;
+}
+
+.viewer-thumbnail {
+    width: 100%;
+    flex: 1;
+    /* Take available space */
+    background-color: #f1f5f9;
+    border-radius: 4px;
+    margin-bottom: 1vh;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+    font-size: 3vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.viewer-thumbnail img,
+.viewer-thumbnail video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.viewer-label {
+    font-size: 1.4vh;
+    font-weight: 600;
+    color: var(--dark-color);
+    margin-bottom: 0.5vh;
+    font-family: 'Inter', sans-serif;
+    /* English font */
+}
+
+.status-badge {
+    font-size: 1.1vh;
+    padding: 0.3vh 0.8vh;
+    border-radius: 4px;
+    /* Less rounded */
+    color: #fff;
+    background-color: #94a3b8;
+    /* Muted gray for pending */
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ready .status-badge {
+    background-color: var(--primary-color);
+}
+
+.pending .status-badge {
+    background-color: #cbd5e1;
+    color: #64748b;
+}
+
+/* Action Cell (Bottom Right) */
+.viewer-actions-cell {
+    grid-column: 3;
+    /* Last column */
+    grid-row: 2;
+    /* Second row */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5vh;
+    padding: 10px;
+}
+
+#reload-viewer-btn,
+#request-diagnosis-btn-viewer {
+    width: 100%;
+    padding: 1.5vh 0;
+    font-size: 1.6vh;
+    border-radius: 6px;
+    /* Premium boxy button */
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+#reload-viewer-btn {
+    background: white;
+    color: var(--dark-color);
+    border: 1px solid var(--border-color);
+}
+
+#request-diagnosis-btn-viewer {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 10px rgba(32, 178, 170, 0.2);
+}
+
+#request-diagnosis-btn-viewer:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.status-note {
+    font-size: 1vh;
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* Ensure button visibility in Phase 3 */
+#phase3 .card {
+    height: 90vh;
+    /* Fixed height for consistency */
+    display: flex;
+    flex-direction: column;
+}
