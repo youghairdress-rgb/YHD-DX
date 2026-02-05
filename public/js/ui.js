@@ -53,7 +53,7 @@ async function ensureHairSegmenterLoaded() {
             baseOptions: {
                 modelAssetPath:
                     "https://storage.googleapis.com/mediapipe-models/image_segmenter/hair_segmenter/float32/1/hair_segmenter.tflite",
-                delegate: "GPU"
+                delegate: "CPU" // Changed from GPU to CPU for better iOS stability
             },
             outputCategoryMask: true,
             outputConfidenceMasks: false
@@ -394,29 +394,53 @@ export async function runHairSegmentation(imgElement) {
 
     console.log("[ui.js] Running Hair Segmentation on:", imgElement.src);
 
+    // Constraint for performance on iPad (Max 800px - Safer for iOS Memory)
+    const MAX_DIMENSION = 800;
+    let width = imgElement.naturalWidth;
+    let height = imgElement.naturalHeight;
+
+    // Debug Status Update
+    const statusEl = document.getElementById('segmentation-status');
+    if (statusEl) statusEl.textContent = `Processing: ${width}x${height} -> Max ${MAX_DIMENSION}`;
+
+    if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+        console.log(`[ui.js] Downscaling image for segmentation: ${imgElement.naturalWidth}x${imgElement.naturalHeight} -> ${width}x${height}`);
+        if (statusEl) statusEl.textContent = `Downsizing: ${width}x${height}`;
+    }
+
     const inputCanvas = document.createElement('canvas');
-    inputCanvas.width = imgElement.naturalWidth;
-    inputCanvas.height = imgElement.naturalHeight;
+    inputCanvas.width = width;
+    inputCanvas.height = height;
     const iCtx = inputCanvas.getContext('2d', { willReadFrequently: true });
 
     try {
-        iCtx.drawImage(imgElement, 0, 0, inputCanvas.width, inputCanvas.height);
+        iCtx.drawImage(imgElement, 0, 0, width, height);
     } catch (e) {
         console.error("[ui.js] Failed to draw image to segmentation canvas (CORS?):", e);
+        if (statusEl) statusEl.textContent = "Error: Canvas Draw Failed (CORS?)";
         return;
     }
 
     const displayCanvas = document.getElementById('phase6-canvas');
     if (displayCanvas) {
-        displayCanvas.width = inputCanvas.width;
-        displayCanvas.height = inputCanvas.height;
+        displayCanvas.width = width;
+        displayCanvas.height = height;
     }
 
     originalImageBitmap = inputCanvas;
 
+    // Call Segmenter
+    if (statusEl) statusEl.textContent = "AI Segmenting...";
     imageSegmenter.segment(inputCanvas, (result) => {
         const mask = result.categoryMask; // MPMask
-        if (!mask) return;
+        if (!mask) {
+            if (statusEl) statusEl.textContent = "Error: No Mask Generated";
+            return;
+        }
+        if (statusEl) statusEl.textContent = "Success: Hair Detected";
 
         const width = inputCanvas.width;
         const height = inputCanvas.height;
@@ -642,13 +666,15 @@ export function changePhase(phaseId) {
                     if (container) container.style.display = 'block';
 
                     // Run Segmentation Immediately for faders
-                    // Removed auto-run per user request for manual trigger
-                    // runHairSegmentation(img);
+                    // Auto-run enabled for smoother UX on iPad
+                    if (typeof runHairSegmentation === 'function') {
+                        runHairSegmentation(img);
+                    }
 
                     // Instead reset state so button appears
                     if (window.resetPhase6State) window.resetPhase6State();
                 }
-            }, 100);
+            }, 500); // Increased delay slightly to ensure DOM is ready
         }
     } else {
         document.getElementById('phase1')?.classList.add('active');
@@ -868,10 +894,8 @@ export function displayGeneratedImage(base64Data, mimeType, styleName, colorName
     // Initialize logic if elements exist
     initializePhase6Adjustments();
 
-    if (mainDiagnosisImage && base64Data) {
-        mainDiagnosisImage.src = `data:${mimeType};base64,${base64Data}`;
-        mainDiagnosisImage.style.display = 'block';
-    }
+    // 1. Removed redundant src assignment to prevent race condition/tainting
+    // The correct assignment happens later with onload handler
 
     // Reset State (Show Button, Hide Faders)
     if (window.resetPhase6State) window.resetPhase6State();
@@ -881,10 +905,15 @@ export function displayGeneratedImage(base64Data, mimeType, styleName, colorName
 
     if (mainDiagnosisImage) {
         // Wait for image load
-        // Removed auto-segmentation. User will click button.
-        // mainDiagnosisImage.onload = () => {
-        //     runHairSegmentation(mainDiagnosisImage);
-        // };
+        // Auto-segmentation enabled for seamless iPad experience
+        mainDiagnosisImage.onload = () => {
+            // Delay slightly to ensure layout is stable
+            setTimeout(() => {
+                if (typeof runHairSegmentation === 'function') {
+                    runHairSegmentation(mainDiagnosisImage);
+                }
+            }, 300);
+        };
         // Set crossOrigin explicitly
         mainDiagnosisImage.crossOrigin = "anonymous";
 

@@ -168,7 +168,7 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('request-diagnosis-btn')?.addEventListener('click', handleDiagnosisRequest);
+
 
     document.getElementById('next-to-proposal-btn')?.addEventListener('click', () => {
         displayProposalResult(appState.aiProposal, null, !!appState.inspirationImageUrl);
@@ -194,10 +194,16 @@ function setupEventListeners() {
 
     // Faders (Direct Input) - Keep existing logic, IDs didn't change (just moved)
     ['range-brightness', 'range-hue', 'range-saturate'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', () => {
-            // Ensure this calls the function that updates the phase 7 canvas
-            if (typeof drawComposite === 'function') drawComposite();
-        });
+        const el = document.getElementById(id);
+        if (el) {
+            // Listen to both input (live) and change (commit)
+            el.addEventListener('input', () => {
+                if (typeof drawComposite === 'function') drawComposite();
+            });
+            el.addEventListener('change', () => {
+                if (typeof drawComposite === 'function') drawComposite();
+            });
+        }
     });
 
     // Phase 7 Buttons
