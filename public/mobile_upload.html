@@ -10,7 +10,7 @@
         rel="stylesheet">
     <style>
         :root {
-            --primary-color: #20b2aa;
+            --primary-color: #0ABAB5;
             --bg-color: #f8f9fa;
             --text-color: #333;
         }
@@ -110,8 +110,9 @@
 
 <body>
 
-    <h1>素材の撮影・登録</h1>
-    <p class="desc">以下の5つの素材を撮影してください。<br>自動的にシステムへ送信されます。</p>
+    <h1>Materials Upload</h1>
+    <p class="desc" id="customer-name-display" style="font-weight:bold; color:var(--primary-color); font-size:1.1rem;">
+    </p>
 
     <div id="status-message"
         style="display:none; padding:10px; background:#e0ffe0; color:green; border-radius:5px; margin-bottom:20px;">
@@ -202,6 +203,14 @@
         // Get User ID from URL
         const params = new URLSearchParams(window.location.search);
         const customerId = params.get('customerId'); // REQUIRED
+        const customerName = params.get('customerName'); // Requested for display
+
+        // Display Name
+        if (customerName) {
+            document.getElementById('customer-name-display').textContent = decodeURIComponent(customerName) + " 様";
+        } else if (customerId) {
+            document.getElementById('customer-name-display').textContent = "ID: " + customerId;
+        }
 
         if (!customerId) {
             alert("エラー: 顧客IDが指定されていません。(URLパラメータ ?customerId=... が必要です)");
