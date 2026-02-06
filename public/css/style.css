@@ -2162,10 +2162,10 @@ button {
 #phase7 .p7-comp-right img,
 #phase7 #main-diagnosis-image,
 #phase7 #phase6-canvas {
-    max-width: 100% !important;
-    /* Reverted to 100% as requested */
-    max-height: 100% !important;
-    /* Fit within container */
+    max-width: 90% !important;
+    /* Reduced to 90% as requested */
+    max-height: 90% !important;
+    /* Reduced to 90% as requested */
     width: auto !important;
     height: auto !important;
     object-fit: contain;

@@ -211,7 +211,8 @@ function setupEventListeners() {
         if (typeof resetAdjustments === 'function') resetAdjustments();
     });
 
-    document.getElementById('btn-save')?.addEventListener('click', handleSaveGeneratedImage);
+    // document.getElementById('btn-save')?.addEventListener('click', handleSaveGeneratedImage);
+    // Note: Save is now handled in ui.js to capture phase6 canvas changes
 
     document.getElementById('btn-back-style')?.addEventListener('click', () => changePhase('phase6'));
 
@@ -309,12 +310,18 @@ async function captureAndSave(selector, title) {
     if (!element) return;
     toggleLoader(true, "保存中...");
     try {
+        // Capture full scrolling content
+        const fullHeight = element.scrollHeight;
+        const fullWidth = element.scrollWidth;
+
         // html2canvasの設定を強化
         const canvas = await html2canvas(element, {
             useCORS: true, // 外部画像(CORS)対応
             scale: 2, // 高画質
             allowTaint: true,
             backgroundColor: "#ffffff", // 背景色指定
+            height: fullHeight, // Capture full height
+            windowHeight: fullHeight, // Ensure window context is tall enough
             ignoreElements: (el) => el.classList.contains('no-print')
         });
         const dataUrl = canvas.toDataURL("image/png");

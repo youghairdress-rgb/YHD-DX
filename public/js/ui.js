@@ -329,7 +329,12 @@ if (resetBtn) {
 const saveBtn = document.getElementById('btn-save');
 if (saveBtn) {
     saveBtn.onclick = async () => {
-        if (!canvas) return;
+        // Fix: Use the correct phase6 canvas that contains the composite image
+        const canvas = document.getElementById('phase6-canvas');
+        if (!canvas) {
+            console.error("Save failed: Canvas not found");
+            return;
+        }
         const dataUrl = canvas.toDataURL('image/png');
         if (!dataUrl) return;
 
@@ -454,42 +459,74 @@ export async function runHairSegmentation(imgElement) {
         hairCanvas.height = height;
         const hCtx = hairCanvas.getContext('2d');
 
-        const sourceData = iCtx.getImageData(0, 0, width, height).data;
-        const maskArray = mask.getAsUint8Array(); // length = maskWidth * maskHeight
+        // --- REALITY PRESERVATION (Feathering & Expansion) ---
+        // AI-2 generates "stray hairs" (ahoge) which AI-3 tends to cut off.
+        // We expand the mask slightly and blur the edges to include these fine details.
 
-        const hairImgData = hCtx.createImageData(width, height);
-        const hairData = hairImgData.data;
+        // 1. Create a dedicated mask canvas for processing
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = width;
+        maskCanvas.height = height;
+        const mCtx = maskCanvas.getContext('2d');
 
-        let hairCount = 0;
-
-        // Robust Loop with Scaling
-        // Iterate over OUTPUT pixels (width x height)
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                // Map to Mask Coordinates
-                const mx = Math.floor(x * maskWidth / width);
-                const my = Math.floor(y * maskHeight / height);
-                const maskIdx = my * maskWidth + mx;
-
-                const isHair = maskArray[maskIdx] === 1;
-
-                const idx = (y * width + x) * 4;
-
-                if (isHair) {
-                    hairCount++;
-                    hairData[idx] = sourceData[idx];     // R
-                    hairData[idx + 1] = sourceData[idx + 1]; // G
-                    hairData[idx + 2] = sourceData[idx + 2]; // B
-                    hairData[idx + 3] = sourceData[idx + 3]; // A
-                } else {
-                    hairData[idx + 3] = 0; // Transparent
-                }
-            }
+        // 2. Draw the raw binary mask
+        const maskImgData = mCtx.createImageData(width, height);
+        // Copy alpha channel from maskArray (0 or 1) to alpha (0 or 255)
+        for (let i = 0; i < maskArray.length; i++) {
+            const alpha = maskArray[i] * 255;
+            maskImgData.data[i * 4 + 0] = 0; // R
+            maskImgData.data[i * 4 + 1] = 0; // G
+            maskImgData.data[i * 4 + 2] = 0; // B
+            maskImgData.data[i * 4 + 3] = alpha; // A
         }
+        mCtx.putImageData(maskImgData, 0, 0);
 
-        hCtx.putImageData(hairImgData, 0, 0);
+        // 3. Expansion (Dilation) - Draw image multiple times with slight offsets
+        // This expands the mask by approx 2-3 pixels to catch stray hairs
+        const expandedCanvas = document.createElement('canvas');
+        expandedCanvas.width = width;
+        expandedCanvas.height = height;
+        const eCtx = expandedCanvas.getContext('2d');
+
+        // Draw center
+        eCtx.drawImage(maskCanvas, 0, 0);
+        // Draw offsets
+        const offset = 2;
+        eCtx.globalCompositeOperation = 'source-over';
+        eCtx.drawImage(maskCanvas, -offset, 0);
+        eCtx.drawImage(maskCanvas, offset, 0);
+        eCtx.drawImage(maskCanvas, 0, -offset);
+        eCtx.drawImage(maskCanvas, 0, offset);
+
+        // 4. Feathering (Blur) - Soften the edges
+        // Using shadowBlur is expensive, so we use CSS filter or box blur manually.
+        // Since we are in canvas, we can use filter property if supported, or a simple trick.
+        const featherCanvas = document.createElement('canvas');
+        featherCanvas.width = width;
+        featherCanvas.height = height;
+        const fCtx = featherCanvas.getContext('2d');
+        fCtx.filter = 'blur(4px)'; // Soft blur
+        fCtx.drawImage(expandedCanvas, 0, 0);
+        fCtx.filter = 'none';
+
+        // 5. Apply this Fealthered Mask to Extract Hair
+        // Now we use this 'featherCanvas' as the alpha mask for the original image
+
+        // Clear hairCanvas
+        hCtx.clearRect(0, 0, width, height);
+
+        // Draw original image
+        hCtx.drawImage(originalImageBitmap, 0, 0);
+
+        // Composite the mask using 'destination-in' (Keeps image only where mask is opaque)
+        hCtx.globalCompositeOperation = 'destination-in';
+        hCtx.drawImage(featherCanvas, 0, 0);
+
+        // Reset composite operation
+        hCtx.globalCompositeOperation = 'source-over';
+
         hairMaskCanvas = hairCanvas;
-        console.log(`[ui.js] Hair Pixels: ${hairCount}`);
+        console.log(`[ui.js] Hair Pixels Processed with Reality Preservation (Expansion+Blur)`);
 
         if (window.applyLiveFilters) window.applyLiveFilters();
 

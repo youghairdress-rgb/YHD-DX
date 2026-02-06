@@ -180,25 +180,25 @@ ${colorInstruction}
 
 ${requestPromptPart}
 
-**VISUAL DICTIONARY (Strict Adherence for Hair Lengths):**
+**VISUAL DICTIONARY (Trend Translation & Strict Adherence):**
 If the Request or Style Description mentions these terms, apply the visual rules exactly:
-- **Berry Short:** Short around ears/nape. Top has movement.
-- **Short:** Longer than Berry Short. Nape short, ears half-covered.
-- **Bob:** Inner/Outer hair same length. Rounded/Thick form.
-- **Short Bob:** Nape ~3cm (neck visible). Surface covers inner hair.
-- **Medium Bob:** Mid-neck to shoulder.
-- **Lob:** Shoulder length. Tips flip out.
-- **Medium:** Shoulder to collarbone.
-- **Semidi:** Collarbone to below collarbone (top of shoulder blade).
-- **Semi-Long:** Below collarbone to mid-shoulder blade.
-- **Long:** Below shoulder blade (bust top).
-- **Super Long:** Below bust top.
-- **Layer:** Stepped layers (High movement).
-- **Gradation:** Overlapping layers (Roundness).
+- **Yoshin Mori (ヨシンモリ):** Large S-shaped waves curving OUTWARD at face line (reverse curl). Constricted silhouette at the neck. Glamorous volume.
+- **Tassel Cut (タッセルカット):** Blunt, straight cut at ends. Syllabus-like flat lines. Slight outward flip at tips. Wet texture.
+- **Handsome Short (ハンサムショート):** Long bangs falling over eyes/cheeks. Short, tight nape. Masculine-feminine balance.
+- **Mini Bob (ミニボブ):** Chin-length or shorter. Compact silhouette. Fits jawline tightly.
+- **Constriction Midi (くびれミディ):** Diamond silhouette. Volume at ears, tight at neck, outward flip at shoulders.
+- **Wolf Cut / Layer (ウルフ/レイヤー):** High layers on top (short). Long, thin ends. Artificially messy movement.
+- **Milk Tea Beige:** Soft, creamy beige with reduced yellow/orange. Semi-matte transparency.
+- **Greige (Beige + Grey):** Desaturated cool brown. Ashy undertone.
+- **Lavender Pink:** Pink with slight purple tint. Reduces yellow tones. Translucent.
 
 **PHOTOGRAPHY & TEXTURE SPECS (The "Look"):**
 - **Camera:** 85mm Portrait Lens, f/1.8 aperture (creates natural bokeh in background, sharp focus on eyes/hair).
 - **Texture:** 8K resolution, individual keratin strands visible, cuticle reflection (angel ring), subsurface scattering (light passing through hair tips).
+- **Imperfection (REALISM BOOSTER):**
+  - **Micro-Frizz:** Strictly ADD 3-5% loose/stray hairs (ahoge) on the surface to break the "CG look".
+  - **Asymmetry:** Slight natural irregularity in wave patterns.
+  - **Baby Hairs:** Fine, shorter hairs at the hairline.
 - **Atmosphere:** Professional salon photography, soft box lighting, high dynamic range.
 
 **NEGATIVE PROMPTS:**

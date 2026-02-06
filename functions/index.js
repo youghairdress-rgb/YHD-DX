@@ -37,8 +37,8 @@ exports.requestDiagnosis = onRequest(
   {
     ...corsOptions,
     secrets: [llmApiKey],
-    timeoutSeconds: 300, // 5分
-    memory: "2GiB",
+    timeoutSeconds: 540, // 9分
+    memory: "4GiB",
   },
   async (req, res) => {
     // 依存性を注入してコントローラーを呼び出す
