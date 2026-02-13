@@ -14,15 +14,15 @@ const logger = require("firebase-functions/logger");
  * @param {object} dependencies.auth - Firebase Auth サービス
  */
 async function createFirebaseCustomTokenController(req, res, dependencies) {
-  const { auth } = dependencies;
+  const {auth} = dependencies;
 
   if (req.method !== "POST") {
     logger.warn(`[createFirebaseCustomToken] Method Not Allowed: ${req.method}`);
     return res.status(405).json({error: "Method Not Allowed"});
   }
   if (!auth) {
-      logger.error("[createFirebaseCustomToken] Firebase Auth service is not initialized.");
-      return res.status(500).json({ error: "Internal Server Error", message: "Auth service not available." });
+    logger.error("[createFirebaseCustomToken] Firebase Auth service is not initialized.");
+    return res.status(500).json({error: "Internal Server Error", message: "Auth service not available."});
   }
 
   try {

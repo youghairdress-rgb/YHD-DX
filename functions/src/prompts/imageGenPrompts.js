@@ -29,21 +29,21 @@ function getGenerationPrompt(data) {
     hairstyleName, hairstyleDesc, haircolorName, haircolorDesc,
     recommendedLevel, currentLevel, userRequestsText, hasInspirationImage,
     isUserStyle, isUserColor, hasToneOverride,
-    keepStyle, keepColor // Patch for Phase 4 logic
+    keepStyle, keepColor, // Patch for Phase 4 logic
   } = data;
 
   // ユーザーの要望テキストが空でない場合、プロンプトに差し込む
-  const requestPromptPart = userRequestsText
-    ? `
+  const requestPromptPart = userRequestsText ?
+    `
 **PRIORITY USER REQUEST:**
 "${userRequestsText}"
 (This instruction overrides standard style defaults. Execute with precision.)
-`
-    : "";
+` :
+    "";
 
   // 参考画像 (Inspiration) - 分析指示を強化
-  const inspirationPromptPart = hasInspirationImage
-    ? `
+  const inspirationPromptPart = hasInspirationImage ?
+    `
 **REFERENCE IMAGE ANALYSIS (Image 2):**
 - **Task:** Analyze the reference image (Image 2) for:
   1. Hair Texture (Smooth, Matte, Glossy, Frizzy?)
@@ -51,8 +51,8 @@ function getGenerationPrompt(data) {
   3. Exact Color Nuance (Underlying pigments)
   4. Lighting condition matches.
 - **Action:** TRANSFER these exact physical properties to the user in the Base Image (Image 1).
-`
-    : "";
+` :
+    "";
 
   // --- スタイル指定ロジック (構造定義) ---
   let styleInstruction;
@@ -92,20 +92,20 @@ function getGenerationPrompt(data) {
     "Tone 11": "JHCA Level 11: Honey Blonde/Gold. Value: 7/10. Pigment: Orange-Yellow. Visual: High brightness, fashion color. Melanin largely suppressed.",
     "Tone 13": "JHCA Level 13: Bright Blonde. Value: 8/10. Pigment: Yellow dominant. Visual: Bleach territory. Clear yellow-gold. Transparent quality.",
     "Tone 15": "JHCA Level 15: High Bleach. Value: 9/10. Pigment: Pale Yellow. Visual: Very bright blonde. Melanin almost gone. Near platinum.",
-    "Tone 18": "JHCA Level 18: White Bleach. Value: 10/10. Pigment: Faint Yellow. Visual: Platinum blonde. Translucent. Extreme brightness."
+    "Tone 18": "JHCA Level 18: White Bleach. Value: 10/10. Pigment: Faint Yellow. Visual: Platinum blonde. Translucent. Extreme brightness.",
   };
 
   const targetToneDesc = toneDescriptions[recommendedLevel] || recommendedLevel;
 
   // トーン指示の厳格化 (Strict Override Logic)
-  const toneInstruction = hasToneOverride
-    ? `
+  const toneInstruction = hasToneOverride ?
+    `
 **MANDATORY BRIGHTNESS (CRITICAL):**
 - **Target:** ${recommendedLevel} -> ${targetToneDesc}
 - **Constraint:** IGNORE original hair brightness. FORCE the result to match this specific tone level exactly.
 - **Action:** If Target is Tone 15+, apply extensive bleaching effects to remove dark pigments completely.
-`
-    : `**Luminance Target:** Transform from current ${currentLevel} to target ${recommendedLevel} naturally.`;
+` :
+    `**Luminance Target:** Transform from current ${currentLevel} to target ${recommendedLevel} naturally.`;
 
   if (keepColor) {
     if (hasToneOverride) {

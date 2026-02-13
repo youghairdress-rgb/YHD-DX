@@ -9,42 +9,42 @@
 
 // --- ★ AIレスポンスのJSONスキーマ定義 (変更なし) ★ ---
 const AI_RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: {
+  "type": "OBJECT",
+  "properties": {
     "result": {
       "type": "OBJECT",
       "properties": {
         "face": {
           "type": "OBJECT",
           "properties": {
-            "nose": { "type": "STRING", "description": "鼻の特徴 (例: 高い, 丸い)" },
-            "mouth": { "type": "STRING", "description": "口の特徴 (例: 大きい, 薄い)" },
-            "eyes": { "type": "STRING", "description": "目の特徴 (例: 二重, つり目)" },
-            "eyebrows": { "type": "STRING", "description": "眉の特徴 (例: アーチ型, 平行)" },
-            "forehead": { "type": "STRING", "description": "おでこの特徴 (例: 広い, 狭い)" },
+            "nose": {"type": "STRING", "description": "鼻の特徴 (例: 高い, 丸い)"},
+            "mouth": {"type": "STRING", "description": "口の特徴 (例: 大きい, 薄い)"},
+            "eyes": {"type": "STRING", "description": "目の特徴 (例: 二重, つり目)"},
+            "eyebrows": {"type": "STRING", "description": "眉の特徴 (例: アーチ型, 平行)"},
+            "forehead": {"type": "STRING", "description": "おでこの特徴 (例: 広い, 狭い)"},
           },
           "required": ["nose", "mouth", "eyes", "eyebrows", "forehead"],
         },
         "skeleton": {
           "type": "OBJECT",
           "properties": {
-            "neckLength": { "type": "STRING", "description": "首の長さ。補足説明を入れること (例: 標準(バランスが良い), 長め(すっきり見える))" },
-            "faceShape": { "type": "STRING", "description": "顔の形。補足説明を入れること (例: ベース顔(エラ張り気味), 丸顔(曲線的))" },
-            "bodyLine": { "type": "STRING", "description": "ボディライン。補足説明を入れること (例: ナチュラル(フレーム感が強い), ウェーブ(曲線的))" },
-            "shoulderLine": { "type": "STRING", "description": "肩のライン。補足説明を入れること (例: いかり肩(直線的), なで肩(華奢))" },
-            "faceStereoscopy": { "type": "STRING", "description": "顔の立体感。補足説明を入れること (例: 立体的(彫りが深い), 平面的(あっさりした顔立ち))" },
-            "bodyTypeFeature": { "type": "STRING", "description": "体型の特徴。詳細な補足を入れること (例: 骨感が目立つ(ナチュラルタイプ), 上半身に厚みがある(ストレートタイプ))" },
+            "neckLength": {"type": "STRING", "description": "首の長さ。補足説明を入れること (例: 標準(バランスが良い), 長め(すっきり見える))"},
+            "faceShape": {"type": "STRING", "description": "顔の形。補足説明を入れること (例: ベース顔(エラ張り気味), 丸顔(曲線的))"},
+            "bodyLine": {"type": "STRING", "description": "ボディライン。補足説明を入れること (例: ナチュラル(フレーム感が強い), ウェーブ(曲線的))"},
+            "shoulderLine": {"type": "STRING", "description": "肩のライン。補足説明を入れること (例: いかり肩(直線的), なで肩(華奢))"},
+            "faceStereoscopy": {"type": "STRING", "description": "顔の立体感。補足説明を入れること (例: 立体的(彫りが深い), 平面的(あっさりした顔立ち))"},
+            "bodyTypeFeature": {"type": "STRING", "description": "体型の特徴。詳細な補足を入れること (例: 骨感が目立つ(ナチュラルタイプ), 上半身に厚みがある(ストレートタイプ))"},
           },
           "required": ["neckLength", "faceShape", "bodyLine", "shoulderLine", "faceStereoscopy", "bodyTypeFeature"],
         },
         "personalColor": {
           "type": "OBJECT",
           "properties": {
-            "baseColor": { "type": "STRING", "description": "ベースカラー。補足説明を入れること (例: イエローベース(黄み寄り), ブルーベース(青み寄り))" },
-            "season": { "type": "STRING", "description": "シーズン。補足説明を入れること (例: オータム(深みのある色が得意))" },
-            "brightness": { "type": "STRING", "description": "明度。補足説明を入れること (例: 低明度(暗めの色が似合う))" },
-            "saturation": { "type": "STRING", "description": "彩度。補足説明を入れること (例: 中彩度(穏やかな色が似合う))" },
-            "eyeColor": { "type": "STRING", "description": "瞳の色。詳細に記述すること (例: 明るい茶色(透明感がある), 黒に近い焦げ茶(印象的))" },
+            "baseColor": {"type": "STRING", "description": "ベースカラー。補足説明を入れること (例: イエローベース(黄み寄り), ブルーベース(青み寄り))"},
+            "season": {"type": "STRING", "description": "シーズン。補足説明を入れること (例: オータム(深みのある色が得意))"},
+            "brightness": {"type": "STRING", "description": "明度。補足説明を入れること (例: 低明度(暗めの色が似合う))"},
+            "saturation": {"type": "STRING", "description": "彩度。補足説明を入れること (例: 中彩度(穏やかな色が似合う))"},
+            "eyeColor": {"type": "STRING", "description": "瞳の色。詳細に記述すること (例: 明るい茶色(透明感がある), 黒に近い焦げ茶(印象的))"},
           },
           "required": ["baseColor", "season", "brightness", "saturation", "eyeColor"],
         },
@@ -52,11 +52,11 @@ const AI_RESPONSE_SCHEMA = {
           "type": "OBJECT",
           "description": "写真（と将来の動画）から分析した現在の髪の状態",
           "properties": {
-            "quality": { "type": "STRING", "description": "髪質。補足説明を入れること (例: 硬い(ハリコシがある), 柔らかい(猫っ毛))" },
-            "curlType": { "type": "STRING", "description": "クセ。補足説明を入れること (例: 直毛(扱いやすい), 波状毛(うねりがある))" },
-            "damageLevel": { "type": "STRING", "description": "ダメージレベル。補足説明を入れること (例: 低(健康的でツヤがある), 中(毛先に乾燥が見られる))" },
-            "volume": { "type": "STRING", "description": "毛量。補足説明を入れること (例: 多い(広がりやすい), 普通(適度))" },
-            "currentLevel": { "type": "STRING", "description": "現在の明るさ (Tone表記)。色味の補足を入れること (例: Tone 7(落ち着いたブラウン))" },
+            "quality": {"type": "STRING", "description": "髪質。補足説明を入れること (例: 硬い(ハリコシがある), 柔らかい(猫っ毛))"},
+            "curlType": {"type": "STRING", "description": "クセ。補足説明を入れること (例: 直毛(扱いやすい), 波状毛(うねりがある))"},
+            "damageLevel": {"type": "STRING", "description": "ダメージレベル。補足説明を入れること (例: 低(健康的でツヤがある), 中(毛先に乾燥が見られる))"},
+            "volume": {"type": "STRING", "description": "毛量。補足説明を入れること (例: 多い(広がりやすい), 普通(適度))"},
+            "currentLevel": {"type": "STRING", "description": "現在の明るさ (Tone表記)。色味の補足を入れること (例: Tone 7(落ち着いたブラウン))"},
           },
           "required": ["quality", "curlType", "damageLevel", "volume", "currentLevel"],
         },
@@ -73,16 +73,16 @@ const AI_RESPONSE_SCHEMA = {
             "style1": {
               "type": "OBJECT",
               "properties": {
-                "name": { "type": "STRING", "description": "ヘアスタイルの名前 (例: くびれレイヤーミディ)" },
-                "description": { "type": "STRING", "description": "スタイルの説明 (50-100文字程度)" },
+                "name": {"type": "STRING", "description": "ヘアスタイルの名前 (例: くびれレイヤーミディ)"},
+                "description": {"type": "STRING", "description": "スタイルの説明 (50-100文字程度)"},
               },
               "required": ["name", "description"],
             },
             "style2": {
               "type": "OBJECT",
               "properties": {
-                "name": { "type": "STRING", "description": "ヘアスタイルのの名前 (例: シースルーバングショート)" },
-                "description": { "type": "STRING", "description": "スタイルの説明 (50-100文字程度)" },
+                "name": {"type": "STRING", "description": "ヘアスタイルのの名前 (例: シースルーバングショート)"},
+                "description": {"type": "STRING", "description": "スタイルの説明 (50-100文字程度)"},
               },
               "required": ["name", "description"],
             },
@@ -96,18 +96,18 @@ const AI_RESPONSE_SCHEMA = {
             "color1": {
               "type": "OBJECT",
               "properties": {
-                "name": { "type": "STRING", "description": "ヘアカラーの名前 (例: ラベンダーアッシュ)" },
-                "description": { "type": "STRING", "description": "カラーの説明 (トレンドやブリーチ要否を含める)" },
-                "recommendedLevel": { "type": "STRING", "description": "詳細なトーンレベルに基づく推奨明るさ (例: トーン11(ライトブラウン～ゴールド))" },
+                "name": {"type": "STRING", "description": "ヘアカラーの名前 (例: ラベンダーアッシュ)"},
+                "description": {"type": "STRING", "description": "カラーの説明 (トレンドやブリーチ要否を含める)"},
+                "recommendedLevel": {"type": "STRING", "description": "詳細なトーンレベルに基づく推奨明るさ (例: トーン11(ライトブラウン～ゴールド))"},
               },
               "required": ["name", "description", "recommendedLevel"],
             },
             "color2": {
               "type": "OBJECT",
               "properties": {
-                "name": { "type": "STRING", "description": "ヘアカラーの名前 (例: ピンクベージュ)" },
-                "description": { "type": "STRING", "description": "カラーの説明 (トレンドやブリーチ要否を含める)" },
-                "recommendedLevel": { "type": "STRING", "description": "詳細なトーンレベルに基づく推奨明るさ (例: トーン13(ブライトゴールド))" },
+                "name": {"type": "STRING", "description": "ヘアカラーの名前 (例: ピンクベージュ)"},
+                "description": {"type": "STRING", "description": "カラーの説明 (トレンドやブリーチ要否を含める)"},
+                "recommendedLevel": {"type": "STRING", "description": "詳細なトーンレベルに基づく推奨明るさ (例: トーン13(ブライトゴールド))"},
               },
               "required": ["name", "description", "recommendedLevel"],
             },
@@ -118,10 +118,10 @@ const AI_RESPONSE_SCHEMA = {
           "type": "OBJECT",
           "description": "パーソナルカラーに基づいた相性の良いカラー4種。キーは 'c1' から 'c4'。",
           "properties": {
-            "c1": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "hex": { "type": "STRING", "description": "例: #FFB6C1" } }, "required": ["name", "hex"] },
-            "c2": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "hex": { "type": "STRING", "description": "例: #FFDAB9" } }, "required": ["name", "hex"] },
-            "c3": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "hex": { "type": "STRING", "description": "例: #E6E6FA" } }, "required": ["name", "hex"] },
-            "c4": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "hex": { "type": "STRING", "description": "例: #98FB98" } }, "required": ["name", "hex"] },
+            "c1": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "hex": {"type": "STRING", "description": "例: #FFB6C1"}}, "required": ["name", "hex"]},
+            "c2": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "hex": {"type": "STRING", "description": "例: #FFDAB9"}}, "required": ["name", "hex"]},
+            "c3": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "hex": {"type": "STRING", "description": "例: #E6E6FA"}}, "required": ["name", "hex"]},
+            "c4": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "hex": {"type": "STRING", "description": "例: #98FB98"}}, "required": ["name", "hex"]},
           },
           "required": ["c1", "c2", "c3", "c4"],
         },
@@ -129,9 +129,9 @@ const AI_RESPONSE_SCHEMA = {
           "type": "OBJECT",
           "description": "パーソナルカラーに基づいた似合うメイク提案",
           "properties": {
-            "eyeshadow": { "type": "STRING", "description": "アイシャドウの色 (例: ゴールド系ブラウン)" },
-            "cheek": { "type": "STRING", "description": "チークの色 (例: ピーチピンク)" },
-            "lip": { "type": "STRING", "description": "リップの色 (例: コーラルレッド)" },
+            "eyeshadow": {"type": "STRING", "description": "アイシャドウの色 (例: ゴールド系ブラウン)"},
+            "cheek": {"type": "STRING", "description": "チークの色 (例: ピーチピンク)"},
+            "lip": {"type": "STRING", "description": "リップの色 (例: コーラルレッド)"},
           },
           "required": ["eyeshadow", "cheek", "lip"],
         },
@@ -141,18 +141,18 @@ const AI_RESPONSE_SCHEMA = {
           "properties": {
             "recommendedStyles": {
               "type": "ARRAY",
-              "items": { "type": "STRING" },
+              "items": {"type": "STRING"},
               "description": "似合うファッションスタイル (2つ程度。例: Aライン, Iライン)",
             },
             "recommendedItems": {
               "type": "ARRAY",
-              "items": { "type": "STRING" },
+              "items": {"type": "STRING"},
               "description": "似合うファッションアイテム (2つ程度。例: Vネックニット, テーパードパンツ)",
             },
           },
           "required": ["recommendedStyles", "recommendedItems"],
         },
-        "comment": { "type": "STRING", "description": "AIトップヘアスタイリストによる総評 (200-300文字程度)" },
+        "comment": {"type": "STRING", "description": "AIトップヘアスタイリストによる総評 (200-300文字程度)"},
       },
       "required": ["hairstyles", "haircolors", "bestColors", "makeup", "fashion", "comment"],
     },
@@ -169,23 +169,23 @@ const AI_RESPONSE_SCHEMA = {
  */
 function getDiagnosisSystemPrompt(gender, userRequestsText = "", trendInfo = "") {
   // ユーザーの要望テキストが空でない場合、プロンプトに差し込む
-  const requestPromptPart = userRequestsText
-    ? `
+  const requestPromptPart = userRequestsText ?
+    `
 ## PRIORITY REQUEST
 **Client's Wish:** "${userRequestsText}"
 Integrate this wish into the diagnosis and proposal. If the wish contradicts the physical diagnosis (e.g., client wants a style not suitable for their bone structure), propose a compromise that respects both.
-`
-    : "";
+` :
+    "";
 
   // トレンド情報がある場合、プロンプトに差し込む
-  const trendPromptPart = trendInfo
-    ? `
+  const trendPromptPart = trendInfo ?
+    `
 ## MARKET TRENDS (Real-time Patrol Data)
 **Current Market Trends:**
 ${trendInfo}
 **Instruction:** Incorporate these trends into the proposal (Proposal Logic -> Hair Color Strategy & Trend) where appropriate, ensuring the style feels modern and up-to-date.
-`
-    : "";
+` :
+    "";
 
   return `
 You are an **Expert Aesthetic Anatomist** AND a **Top Trend Researcher for Hot Pepper Beauty**.

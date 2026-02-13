@@ -445,6 +445,7 @@ export async function runHairSegmentation(imgElement) {
             if (statusEl) statusEl.textContent = "Error: No Mask Generated";
             return;
         }
+        const maskArray = mask.getAsUint8Array(); // Fix: Define maskArray
         if (statusEl) statusEl.textContent = "Success: Hair Detected";
 
         const width = inputCanvas.width;

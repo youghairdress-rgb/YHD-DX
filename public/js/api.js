@@ -35,7 +35,7 @@ async function fetchApi(url, options) {
 
 // --- 認証 ---
 export async function requestFirebaseCustomToken(accessToken) {
-  const authUrl = "https://asia-northeast1-yhd-db.cloudfunctions.net/createFirebaseCustomToken";
+  const authUrl = "https://asia-northeast1-yhd-db.cloudfunctions.net/createFirebaseCustomTokenV2";
 
   logger.log(`[API] requestFirebaseCustomToken...`);
   return fetchApi(authUrl, {
@@ -67,7 +67,7 @@ export async function saveImageToGallery(firebaseUid, dataUrl, styleName, colorN
 
   const path = `users/${firebaseUid}/gallery/gen-${Date.now()}.png`;
   const storageRef = ref(appState.firebase.storage, path);
-  await uploadBytes(storageRef, blob);
+  await uploadBytes(storageRef, blob, { contentType: 'image/png' });
   const downloadURL = await getDownloadURL(storageRef);
 
   const galleryCol = collection(appState.firebase.firestore, `users/${firebaseUid}/gallery`);
@@ -93,7 +93,7 @@ export async function saveScreenshotToGallery(firebaseUid, dataUrl, title) {
 
   const path = `users/${firebaseUid}/gallery/capture-${Date.now()}.png`;
   const storageRef = ref(appState.firebase.storage, path);
-  await uploadBytes(storageRef, blob);
+  await uploadBytes(storageRef, blob, { contentType: 'image/png' }); // Metadata added
   const downloadURL = await getDownloadURL(storageRef);
 
   const galleryCol = collection(appState.firebase.firestore, `users/${firebaseUid}/gallery`);

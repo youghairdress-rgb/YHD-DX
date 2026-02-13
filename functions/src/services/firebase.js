@@ -6,7 +6,7 @@
 const admin = require("firebase-admin");
 const logger = require("firebase-functions/logger");
 
-let adminApp, auth, storage, defaultBucketName;
+let adminApp; let auth; let storage; let defaultBucketName;
 
 try {
   adminApp = admin.initializeApp();

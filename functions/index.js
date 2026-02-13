@@ -82,10 +82,13 @@ exports.refineHairstyleImage = onRequest(
   },
 );
 
-// --- 4. 認証トークン生成 ---
-exports.createFirebaseCustomToken = onRequest(
+// --- 4. 認証トークン生成 (TARGET: yhd-db) ---
+// ★ Renamed to V2 to allow deploying new Gen2 function alongside old Gen1
+// ★ Region must be asia-northeast1
+exports.createFirebaseCustomTokenV2 = onRequest(
   {
     ...corsOptions,
+    region: "asia-northeast1",
     secrets: [], // シークレット不要
   },
   async (req, res) => {

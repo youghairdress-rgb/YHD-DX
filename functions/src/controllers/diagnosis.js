@@ -122,7 +122,7 @@ async function requestDiagnosisController(req, res, dependencies) {
     logger.error(`[requestDiagnosis] LLM_APIKEY is EMPTY/NULL.`);
   }
 
-  // Use gemini-2.5-flash-preview-09-2025 as confirmed by user it was working up to Phase 6
+  // Revert to gemini-2.5-flash-preview-09-2025 as requested by user
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
   // ★ 追加: トレンド情報の取得 (Firestore)
@@ -218,7 +218,7 @@ async function requestDiagnosisController(req, res, dependencies) {
       debugInfo: {
         reason: "API Call Failed",
         keyStatus: keyStatus,
-        model: "gemini-1.5-flash-002" // Hardcoded to confirm model switch
+        model: "gemini-2.5-flash-preview-09-2025" // Updated to match actual model
       }
     });
   }

@@ -59,9 +59,11 @@
             <div class="phase1-text-group">
                 <h1 class="logo-text-1">YHD × AI</h1>
                 <h2 class="logo-text-2">『似合わせ診断』</h2>
+                <!-- User Greeting -->
+                <p id="user-greeting" class="user-greeting"></p>
                 <p class="description">
                     お客様の『似合う』を実現するために<br>
-                    AIが分析し、最適なアドバイスを伝えます！
+                    AIが分析し、最適なアドバイスを伝えます✨
                 </p>
                 <button id="start-btn" class="btn-primary start-btn-final">診断を始める</button>
             </div>
@@ -89,9 +91,6 @@
                 <label for="user-requests">ご希望のメニューやご要望 (任意)</label>
                 <textarea id="user-requests" class="form-control" rows="4"
                     placeholder="（例）カットとカラー希望。赤みが出ないようにしたい。"></textarea>
-                <button id="voice-input-btn" type="button" class="btn-voice">
-                    <span class="mic-icon">🎤</span> 音声入力
-                </button>
             </div>
 
             <div class="form-group">
@@ -99,8 +98,10 @@
                 <input type="file" id="inspiration-image-input" class="file-input visually-hidden" accept="image/*">
 
                 <div id="inspiration-upload-container" class="inspiration-upload-container" role="button" tabindex="0">
-                    <img id="inspiration-image-preview" alt="プレビュー">
-                    <div class="inspiration-upload-icon-placeholder"></div>
+                    <div class="inspiration-preview-area">
+                        <img id="inspiration-image-preview" alt="プレビュー">
+                    </div>
+                    <!-- Icon placeholder removed as we use the preview area now -->
 
                     <div class="inspiration-upload-text">
                         <strong id="inspiration-upload-title">写真を選択</strong>
@@ -215,8 +216,10 @@
                 </div>
             </div>
 
-            <button id="next-to-proposal-btn" class="btn-dark">AI提案を見る</button>
-            <button id="save-phase4-btn" class="btn-secondary no-print">診断結果を画像で保存</button>
+            <div class="phase4-button-container">
+                <button id="next-to-proposal-btn" class="btn-dark">AI提案を見る</button>
+                <button id="save-phase4-btn" class="btn-secondary no-print">画像保存</button>
+            </div>
         </div>
     </div>
 
@@ -265,17 +268,18 @@
             </div>
 
             <!-- ★ 変更: 設定へ進むボタン -->
-            <button id="move-to-phase6-btn" class="btn-dark">合成画像を生成</button>
-            <button id="save-phase5-btn" class="btn-secondary no-print">提案内容を画像で保存</button>
-            <button id="back-to-diagnosis-btn" class="btn-secondary btn-secondary-white no-print">診断結果に戻る</button>
+            <div class="phase5-button-container">
+                <button id="move-to-phase6-btn" class="btn-dark">合成画像を生成</button>
+                <button id="save-phase5-btn" class="btn-secondary no-print">画像保存</button>
+                <button id="back-to-diagnosis-btn" class="btn-secondary btn-secondary-white no-print">戻る</button>
+            </div>
         </div>
     </div>
 
     <!-- Phase 6: Generated Image (Style Selection) -->
     <div id="phase6" class="container-fluid phase-container" style="display:none;">
         <div class="phase-header">
-            <h2 class="phase-title">スタイル選択 (Style Selection)</h2>
-            <button id="back-to-proposal-btn-p6" class="btn-outline-sm">提案に戻る</button>
+            <h2 class="phase-title">Style Selection</h2>
         </div>
 
         <div class="phase6-layout-grid">
@@ -304,7 +308,10 @@
                         <option value="Tone 18">Tone 18</option>
                     </select>
                 </div>
-                <button id="generate-image-btn" class="btn-primary">Composite START</button>
+                <div class="phase6-bottom-buttons">
+                    <button id="back-to-proposal-btn-p6" class="btn-secondary">戻る</button>
+                    <button id="generate-image-btn" class="btn-primary">Composite START</button>
+                </div>
             </div>
         </div>
     </div>
@@ -312,7 +319,7 @@
     <!-- PHASE 7: Refinement (Composite) -->
     <div id="phase7" class="container-fluid phase-container" style="display:none;">
         <div class="phase-header">
-            <h2 class="phase-title">微調整 (Refinement)</h2>
+            <h2 class="phase-title">Refinement</h2>
         </div>
 
         <div class="phase7-layout">
@@ -362,24 +369,26 @@
                     </div>
                 </div>
 
-                <div class="comp-buttons-area">
-                    <div class="save-buttons-group">
-                        <button id="btn-save" class="btn-primary">保存</button>
-                        <button id="btn-back-style" class="btn-outline">Styleに戻る</button>
-                        <button id="btn-reset" class="btn-dark-outline">リセット</button>
-                    </div>
-                    <!-- Hidden but kept if ref needed logic -->
-                    <button id="save-generated-image-to-db-btn" class="btn-success" style="display:none;">DB保存</button>
-                    <button id="back-to-proposal-btn" class="btn-outline" style="display:none;">提案に戻る</button>
-                </div>
             </div>
 
             <!-- Right: Image -->
             <div class="p7-comp-right">
                 <div class="image-preview-wrapper">
                     <img id="main-diagnosis-image" src="" alt="Diagnosis Result" style="display:none;">
-                    <!-- Canvas will be inserted here by JS -->
+                    <canvas id="phase6-canvas" style="max-width: 100%; height: auto;"></canvas>
                 </div>
+            </div>
+
+            <!-- Buttons Area (Moved to root for easier layout) -->
+            <div class="comp-buttons-area">
+                <div class="save-buttons-group">
+                    <button id="btn-save" class="btn-primary">保存</button>
+                    <button id="btn-back-style" class="btn-outline">Styleに戻る</button>
+                    <button id="btn-reset" class="btn-dark-outline">リセット</button>
+                </div>
+                <!-- Hidden but kept if ref needed logic -->
+                <button id="save-generated-image-to-db-btn" class="btn-success" style="display:none;">DB保存</button>
+                <button id="back-to-proposal-btn" class="btn-outline" style="display:none;">提案に戻る</button>
             </div>
         </div>
     </div>

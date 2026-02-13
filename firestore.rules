@@ -14,10 +14,17 @@ service cloud.firestore {
     // ★★★ 修正点: グローバル読み取りルール ★★★
     // 認証済みのユーザーは、アプリの動作に必要なすべてのデータの読み取りを許可する。
     // これにより、管理者ダッシュボードのログイン時の権限エラーを解消します。
+    // ★★★ 修正点: グローバル読み取りルール削除 ★★★
+    // セキュリティ強化のため、認証済みでも無条件な読み取りは許可しない
+    // match /{document=**} {
+    //   allow read: if request.auth != null;
+    //   allow write: if false;
+    // }
+
+    // ★★★ 修正点: 管理者へのフルアクセス権限付与 ★★★
+    // 管理者はすべてのドキュメントを読み書きできる必要がある (Admin Console対応)
     match /{document=**} {
-      allow read: if request.auth != null;
-      // 書き込みはデフォルトで全て拒否し、以下の個別ルールで許可する
-      allow write: if false;
+      allow read, write: if isAdmin();
     }
 
     // --- 各コレクションに対する詳細な書き込みルール ---
@@ -39,7 +46,8 @@ service cloud.firestore {
     // ★★★ 修正点: 初回登録と管理者権限を両立させるルール ★★★
     match /users/{userId} {
       // ユーザーによる初回登録(create)と、自身のプロフィールの更新(update)を許可
-      allow create, update: if isOwner(userId);
+      // ★ 読み取り(read)も本人または管理者に限定
+      allow read, create, update: if isOwner(userId) || isAdmin();
       // 管理者による顧客情報の操作（削除や、管理者による書き込み）を許可
       allow delete, write: if isAdmin();
     }

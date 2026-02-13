@@ -123,6 +123,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 function initializeAppUI() {
     setupEventListeners();
     setTextContent('display-name', appState.userProfile.displayName || "ゲスト");
+
+    // Set User Greeting for Phase 1
+    const greetingEl = document.getElementById('user-greeting');
+    if (greetingEl) {
+        const userName = appState.userProfile.displayName || "ゲスト";
+        greetingEl.textContent = `ようこそ ${userName} 様！`;
+    }
+
     const genderRadio = document.querySelector(`input[name="gender"][value="${appState.gender}"]`);
     if (genderRadio) genderRadio.checked = true;
     changePhase('phase1');
@@ -228,80 +236,8 @@ function setupEventListeners() {
     document.getElementById('save-phase4-btn')?.addEventListener('click', () => captureAndSave("#phase4 .card", "AI診断結果"));
     document.getElementById('save-phase5-btn')?.addEventListener('click', () => captureAndSave("#phase5 .card", "AI提案内容"));
 
-    // ★ Voice Input Init
-    setupVoiceInput();
-
     // ★ Fader Buttons logic
     setupFaderButtonListeners();
-}
-
-function setupVoiceInput() {
-    const minBtn = document.getElementById('voice-input-btn');
-    const textArea = document.getElementById('user-requests');
-    if (!minBtn || !textArea) return;
-
-    // Check API support
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        minBtn.style.display = 'none'; // Hide if not supported
-        console.warn("Speech Recognition API not supported.");
-        return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    let isListening = false;
-
-    minBtn.addEventListener('click', (e) => {
-        e.preventDefault(); // Prevent form submit
-        e.stopPropagation();
-        if (isListening) {
-            recognition.stop();
-        } else {
-            recognition.start();
-        }
-    });
-
-    recognition.onstart = () => {
-        isListening = true;
-        minBtn.classList.add('listening');
-        minBtn.innerHTML = '<span class="mic-icon">🔴</span> 聞いています...';
-    };
-
-    recognition.onend = () => {
-        isListening = false;
-        minBtn.classList.remove('listening');
-        minBtn.innerHTML = '<span class="mic-icon">🎤</span> 音声入力';
-    };
-
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) {
-            // Append with newline if not empty
-            textArea.value += (textArea.value ? '\\n' : '') + transcript;
-            textArea.dispatchEvent(new Event('change'));
-        }
-    };
-
-    recognition.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
-        isListening = false;
-        minBtn.classList.remove('listening');
-        minBtn.innerHTML = '<span class="mic-icon">⚠️</span> エラー';
-
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-            alert("マイクの使用が許可されていません。\nブラウザの設定（アドレスバーの鍵マーク等）からマイクへのアクセスを許可してください。");
-        } else if (event.error === 'network') {
-            alert("ネットワークエラーが発生しました。接続を確認してください。");
-        }
-
-        setTimeout(() => {
-            minBtn.innerHTML = '<span class="mic-icon">🎤</span> 音声入力';
-        }, 3000);
-    };
 }
 
 // ★★★ 修正: スクリーンショット保存関数 ★★★
@@ -310,18 +246,68 @@ async function captureAndSave(selector, title) {
     if (!element) return;
     toggleLoader(true, "保存中...");
     try {
-        // Capture full scrolling content
-        const fullHeight = element.scrollHeight;
-        const fullWidth = element.scrollWidth;
-
         // html2canvasの設定を強化
         const canvas = await html2canvas(element, {
             useCORS: true, // 外部画像(CORS)対応
             scale: 2, // 高画質
             allowTaint: true,
             backgroundColor: "#ffffff", // 背景色指定
-            height: fullHeight, // Capture full height
-            windowHeight: fullHeight, // Ensure window context is tall enough
+            logging: false, // ログ無効化
+            // Huge window height to ensure virtual viewport never clips content
+            windowWidth: 1080,
+            windowHeight: 8000,
+            x: 0,
+            y: 0,
+            onclone: (clonedDoc) => {
+                const clonedElement = clonedDoc.querySelector(selector);
+
+                if (clonedElement) {
+                    // 1. Force expand Main Container (Card)
+                    // Must use 'important' to override CSS !important
+                    clonedElement.style.setProperty('height', 'auto', 'important');
+                    clonedElement.style.setProperty('max-height', 'none', 'important');
+                    clonedElement.style.setProperty('overflow', 'visible', 'important');
+                    clonedElement.style.setProperty('width', '1080px', 'important');
+                    clonedElement.style.setProperty('position', 'absolute', 'important');
+                    clonedElement.style.setProperty('top', '0', 'important');
+                    clonedElement.style.setProperty('left', '0', 'important');
+
+                    // Force Layout Calculation
+                    const scrollHeight = clonedElement.scrollHeight;
+                    // Try to set min-height to ensure it respects content
+                    clonedElement.style.setProperty('min-height', scrollHeight + 'px', 'important');
+                }
+
+                // 2. Expand ALL potential scroll containers
+                const scrollableClasses = [
+                    '.split-container',
+                    '.result-grid',
+                    '.proposal-grid',
+                    '.best-colors-grid',
+                    '.makeup-grid',
+                    '.top-stylist-comment',
+                    '.phase6-layout-grid',
+                    '.scroll-y'
+                ];
+                scrollableClasses.forEach(cls => {
+                    const elements = clonedElement.querySelectorAll(cls);
+                    elements.forEach(el => {
+                        el.style.setProperty('height', 'auto', 'important');
+                        el.style.setProperty('max-height', 'none', 'important');
+                        el.style.setProperty('overflow', 'visible', 'important');
+                        // Ensure it doesn't clip
+                        el.style.setProperty('display', 'block', 'important');
+                    });
+                });
+
+                // 3. Grid specific fix - ensure rows aren't zero height
+                const phase5Grid = clonedElement.querySelector('.split-container');
+                if (phase5Grid) {
+                    phase5Grid.style.setProperty('grid-auto-rows', 'max-content', 'important');
+                    phase5Grid.style.setProperty('display', 'grid', 'important');
+                    phase5Grid.style.setProperty('overflow', 'visible', 'important');
+                }
+            },
             ignoreElements: (el) => el.classList.contains('no-print')
         });
         const dataUrl = canvas.toDataURL("image/png");
@@ -547,7 +533,7 @@ async function handleImageGenerationRequest() {
     }
 
     // ★ UX Improvement: Show placeholder (original image) immediately so layout doesn't jump
-    const adjustmentContainer = document.getElementById('phase6-adjustment-container');
+    const adjustmentContainer = document.getElementById('phase7-adjustment-container');
     const mainDiagnosisImage = document.getElementById('main-diagnosis-image');
 
     if (adjustmentContainer && mainDiagnosisImage) {
@@ -565,17 +551,26 @@ async function handleImageGenerationRequest() {
         if (appState.uploadedFileUrls['item-front-photo']) {
             console.log("[main.js] Setting placeholder. LocalBlob:", !!(appState.localBlobs && appState.localBlobs['item-front-photo']));
 
-            // Prefer local Blob if available (CORS-safe)
-            if (appState.localBlobs && appState.localBlobs['item-front-photo']) {
-                const blobUrl = URL.createObjectURL(appState.localBlobs['item-front-photo']);
-                mainDiagnosisImage.removeAttribute('crossOrigin'); // Blob URLs don't need CORS
-                mainDiagnosisImage.src = blobUrl;
-            } else {
-                // Fallback to Remote URL
-                // CRITICAL: Remove crossOrigin to avoid CORS error on Firebase Storage URL
-                mainDiagnosisImage.removeAttribute('crossOrigin');
-                mainDiagnosisImage.src = appState.uploadedFileUrls['item-front-photo'];
-            }
+            mainDiagnosisImage.onload = () => {
+                // Once loaded, try running initial segmentation for "Original" look
+                // But only if we are in Phase 7 to avoid background processing
+                if (appState.currentPhase === 'phase7') {
+                    // Check if ui.js is available via module or global
+                    // ensureHairSegmenterLoaded is in ui.js
+                }
+            };
+
+            // ★ FIX: Reset src to empty first to trigger fresh load
+            mainDiagnosisImage.src = "";
+
+            // ★ FIX: Set crossOrigin BEFORE src
+            mainDiagnosisImage.setAttribute('crossOrigin', 'anonymous');
+
+            // ★ FIX: Add cache buster to force fresh request with CORS headers
+            // This prevents using a cached non-CORS response which causes "Tainted canvases"
+            const originalUrl = appState.uploadedFileUrls['item-front-photo'];
+            const separator = originalUrl.includes('?') ? '&' : '?';
+            mainDiagnosisImage.src = `${originalUrl}${separator}t=${new Date().getTime()}`;
 
             mainDiagnosisImage.style.display = 'block';
             mainDiagnosisImage.style.filter = 'blur(2px) grayscale(50%)';
