@@ -13,6 +13,8 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/style.css?v=2">
     <link rel="stylesheet" href="css/components.css">
 
@@ -216,6 +218,7 @@
                 </div>
             </div>
 
+            <hr class="capture-boundary">
             <div class="phase4-button-container">
                 <button id="next-to-proposal-btn" class="btn-dark">AI提案を見る</button>
                 <button id="save-phase4-btn" class="btn-secondary no-print">画像保存</button>
@@ -268,6 +271,7 @@
             </div>
 
             <!-- ★ 変更: 設定へ進むボタン -->
+            <hr class="capture-boundary">
             <div class="phase5-button-container">
                 <button id="move-to-phase6-btn" class="btn-dark">合成画像を生成</button>
                 <button id="save-phase5-btn" class="btn-secondary no-print">画像保存</button>
@@ -332,7 +336,7 @@
                 <div class="adjustment-controls horizontal-faders">
                     <!-- Brightness -->
                     <div class="fader-container">
-                        <div class="fader-title">明度 (Brightness)</div>
+                        <div class="fader-title">Brightness</div>
                         <div class="control-item fader-group">
                             <span class="fader-icon">💡</span>
                             <button class="fader-btn-down" data-target="range-brightness" data-step="-1">◀</button>
@@ -345,7 +349,7 @@
 
                     <!-- Hue -->
                     <div class="fader-container">
-                        <div class="fader-title">色相 (Hue)</div>
+                        <div class="fader-title">Hue</div>
                         <div class="control-item fader-group">
                             <span class="fader-icon">🎨</span>
                             <button class="fader-btn-down" data-target="range-hue" data-step="-10">◀</button>
@@ -357,7 +361,7 @@
 
                     <!-- Saturate -->
                     <div class="fader-container">
-                        <div class="fader-title">彩度 (Saturation)</div>
+                        <div class="fader-title">Saturation</div>
                         <div class="control-item fader-group">
                             <span class="fader-icon">💧</span>
                             <button class="fader-btn-down" data-target="range-saturate" data-step="-10">◀</button>
@@ -374,7 +378,8 @@
             <!-- Right: Image -->
             <div class="p7-comp-right">
                 <div class="image-preview-wrapper">
-                    <img id="main-diagnosis-image" src="" alt="Diagnosis Result" style="display:none;">
+                    <img id="main-diagnosis-image" src="" alt="Diagnosis Result" style="display:none;"
+                        crossorigin="anonymous">
                     <canvas id="phase6-canvas" style="max-width: 100%; height: auto;"></canvas>
                 </div>
             </div>

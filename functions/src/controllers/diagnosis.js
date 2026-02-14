@@ -5,280 +5,129 @@
  */
 
 const logger = require("firebase-functions/logger");
-// ★↓ここが重要です。 gemini.js を正しく読み込んでいるか確認してください
 const { callGeminiApiWithRetry } = require("../services/gemini");
 const { AI_RESPONSE_SCHEMA, getDiagnosisSystemPrompt } = require("../prompts/diagnosisPrompts");
+const config = require("../config");
+const { fetchAsBase64 } = require("../utils/fetchHelper");
+const { sendSuccess, sendError } = require("../utils/responseHelper");
+const { sanitizeObject } = require("../utils/sanitizer");
 
 /**
  * 診断リクエストのメインコントローラー
- * @param {object} req - Expressリクエストオブジェクト
- * @param {object} res - Expressレスポンスオブジェクト
- * @param {object} dependencies - 依存関係
- * @param {object} dependencies.llmApiKey - APIキー(Secret)
+ * @param {object} req
+ * @param {object} res
+ * @param {object} dependencies
  */
 async function requestDiagnosisController(req, res, dependencies) {
   const { llmApiKey } = dependencies;
 
   // 1. メソッドとAPIキーのチェック
   if (req.method !== "POST") {
-    logger.warn("[requestDiagnosis] Method Not Allowed: " + req.method);
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return sendError(res, 405, "Method Not Allowed", `Method ${req.method} not allowed.`);
   }
 
   const apiKey = llmApiKey.value() ? llmApiKey.value().trim() : "";
   if (!apiKey) {
-    logger.error("[requestDiagnosis] LLM_APIKEY is missing.");
-    return res.status(500).json({ error: "Configuration Error", message: "API Key not configured." });
+    return sendError(res, 500, "Configuration Error", "API Key not configured.");
   }
 
   // 2. リクエストデータの取得
   const { fileUrls, userProfile, gender, userRequestsText } = req.body;
   if (!fileUrls || !userProfile || !gender) {
-    logger.error("[requestDiagnosis] Bad Request: Missing data.", { body: req.body });
-    return res.status(400).json({ error: "Bad Request", message: "Missing required data (fileUrls, userProfile, gender)." });
+    return sendError(res, 400, "Bad Request", "Missing required data (fileUrls, userProfile, gender).");
   }
 
   const requiredKeys = ["item-front-photo", "item-side-photo", "item-back-photo", "item-front-video", "item-back-video"];
   const missingKeys = requiredKeys.filter((key) => !fileUrls[key]);
   if (missingKeys.length > 0) {
-    logger.error(`[requestDiagnosis] Bad Request: Missing fileUrls: ${missingKeys.join(", ")}`);
-    return res.status(400).json({ error: "Bad Request", message: `Missing required fileUrls: ${missingKeys.join(", ")}` });
+    return sendError(res, 400, "Bad Request", `Missing required fileUrls: ${missingKeys.join(", ")}`);
   }
 
   logger.info(`[requestDiagnosis] Received request for user: ${userProfile.firebaseUid || userProfile.userId}`);
-  if (userRequestsText) {
-    logger.info(`[requestDiagnosis] User requests: ${userRequestsText}`);
-  }
 
-  // 3. 5つのファイルすべてを fetch して Base64 に変換
+  // 3. ファイル取得 (並列処理)
   const parts = [
     { text: `この顧客（性別: ${gender}）を診断し、提案してください。` },
   ];
 
   try {
-    logger.info("[requestDiagnosis] Fetching 5 files from Storage...");
+    const fetchPromises = requiredKeys.map(key => fetchAsBase64(fileUrls[key], key));
 
-    // 必須の5ファイル
-    const fetchPromises = requiredKeys.map(async (key) => {
-      const url = fileUrls[key];
-      const mimeType = key.includes("video") ?
-        (url.includes(".mp4") ? "video/mp4" : "video/quicktime") :
-        (url.includes(".png") ? "image/png" : "image/jpeg");
-
-      logger.info(`[requestDiagnosis] Fetching ${key} (Type: ${mimeType}) from ${url.substring(0, 50)}...`);
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${key}: ${response.status} ${response.statusText}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString("base64");
-      logger.info(`[requestDiagnosis] Fetched ${key} successfully. Base64 Length: ${base64.length}`);
-
-      return {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64,
-        },
-      };
-    });
-
-    // ★ 追加: ご希望写真 (inspiration-photo) があれば、それも追加
+    // ご希望写真 (任意)
     if (fileUrls["item-inspiration-photo"]) {
-      const url = fileUrls["item-inspiration-photo"];
-      logger.info(`[requestDiagnosis] Fetching inspiration-photo...`);
-      const mimeType = (url.includes(".png") ? "image/png" : "image/jpeg");
-
       fetchPromises.push(
-        (async () => {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("Failed to fetch inspiration-photo");
-          const arrayBuffer = await response.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString("base64");
-          logger.info(`[requestDiagnosis] Fetched inspiration-photo successfully.`);
-          return {
-            inlineData: { mimeType: mimeType, data: base64 },
-          };
-        })(),
+        fetchAsBase64(fileUrls["item-inspiration-photo"], "item-inspiration-photo")
+          .then(res => {
+            parts.push({ text: "添付の最後は、顧客が希望する参考スタイル写真です。" });
+            return res;
+          })
       );
-      parts.push({ text: "添付の最後は、顧客が希望する参考スタイル写真です。" });
     }
 
     const fetchedParts = await Promise.all(fetchPromises);
     parts.push(...fetchedParts);
 
-    logger.info("[requestDiagnosis] All files fetched and converted to Base64 successfully.");
   } catch (fetchError) {
-    logger.error("[requestDiagnosis] Failed to fetch or process files:", fetchError);
-    return res.status(500).json({ error: "File Fetch Error", message: `ファイル（画像・動画）の取得に失敗しました: ${fetchError.message}` });
+    return sendError(res, 500, "File Fetch Error", `ファイル取得失敗: ${fetchError.message}`);
   }
 
-  // 4. Gemini API リクエストペイロードの作成
-  // Debug: Check API Key presence
-  if (apiKey) {
-    logger.info(`[requestDiagnosis] LLM_APIKEY loaded. Prefix: ${apiKey.substring(0, 5)}...`);
-  } else {
-    logger.error(`[requestDiagnosis] LLM_APIKEY is EMPTY/NULL.`);
-  }
-
-  // Revert to gemini-2.5-flash-preview-09-2025 as requested by user
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-  // ★ 追加: トレンド情報の取得 (Firestore)
+  // 4. トレンド情報の取得 (Firestore)
   let trendInfo = "";
   try {
     const db = require("firebase-admin").firestore();
     const trendDoc = await db.collection("system").doc("trends").get();
     if (trendDoc.exists) {
       const data = trendDoc.data();
-      // 古すぎる情報は使わない (例: 1週間以上前)
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      // Timestampがない、または新しい場合のみ採用
       if (!data.updatedAt || data.updatedAt.toDate() > oneWeekAgo) {
         trendInfo = data.content || "";
-        logger.info("[requestDiagnosis] Trend info fetched from Firestore.");
-      } else {
-        logger.info("[requestDiagnosis] Trend info found but too old. Ignoring.");
       }
     }
-  } catch (dbError) {
-    logger.warn("[requestDiagnosis] Failed to fetch trend info (non-fatal):", dbError);
-    // トレンド取得失敗でも診断は続行する
+  } catch (e) {
+    logger.warn("[requestDiagnosis] Failed to fetch trend info (non-fatal):", e);
   }
 
-  // ★ 外部モジュールからプロンプトとスキーマを取得 (トレンド情報を渡す)
+  // 5. Gemini API 呼び出し
   const systemPrompt = getDiagnosisSystemPrompt(gender, userRequestsText, trendInfo);
+  const apiUrl = `${config.api.baseUrl}/${config.models.diagnosis}:generateContent?key=${apiKey}`;
 
   const payload = {
-    systemInstruction: {
-      parts: [{ text: systemPrompt }],
-    },
-    contents: [
-      {
-        role: "user",
-        parts: parts, // 5つ(or 6つ)のファイル(Base64) + テキストプロンプト
-      },
-    ],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: parts }],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: AI_RESPONSE_SCHEMA,
     },
   };
 
-  // 5. API呼び出し（リトライ処理付き）
   try {
-    const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, 3);
-    if (!aiResponse) {
-      throw new Error("AI response was null or undefined after retries.");
-    }
-
-    logger.info("[requestDiagnosis] Gemini API request successful.");
+    const aiResponse = await callGeminiApiWithRetry(apiUrl, payload, config.api.retryLimit);
 
     const responseText = aiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!responseText || typeof responseText !== "string") {
-      logger.error("[requestDiagnosis] No valid JSON text found in AI response.", { response: aiResponse });
-      throw new Error("AIの応答にJSONテキストが含まれていません。");
-    }
+    if (!responseText) throw new Error("AI response text is empty.");
 
     let parsedJson;
     try {
       parsedJson = JSON.parse(responseText);
-    } catch (parseError) {
-      logger.error("[requestDiagnosis] Failed to parse responseText directly.", { responseText, parseError });
-      throw new Error(`AIが不正なJSON形式を返しました: ${parseError.message}`);
+    } catch (e) {
+      throw new Error(`Invalid JSON from AI: ${e.message}`);
     }
 
-    // パースしたJSONをチェック
-    if (!parsedJson.result || !parsedJson.proposal ||
-      !parsedJson.result.hairCondition || !parsedJson.result.hairCondition.currentLevel ||
-      !parsedJson.proposal.fashion ||
-      !parsedJson.proposal.haircolors || !parsedJson.proposal.haircolors.color1 ||
-      !parsedJson.proposal.haircolors.color1.recommendedLevel
-    ) {
-      logger.error("[requestDiagnosis] Parsed JSON missing required keys (result/proposal/hairCondition/currentLevel/fashion/recommendedLevel).", { parsed: parsedJson });
-      throw new Error("AIの応答に必要なキー（currentLevel, recommendedLevelなど）が欠けています。");
+    // 必須キーチェック
+    if (!parsedJson.result?.hairCondition?.currentLevel || !parsedJson.proposal?.haircolors?.color1?.recommendedLevel) {
+      throw new Error("Missing required keys in AI response.");
     }
 
-    // ★ HTMLエンティティの除去 (Sanitizer)
+    // サニタイズして返却
     const sanitizedJson = sanitizeObject(parsedJson);
+    return sendSuccess(res, sanitizedJson);
 
-    return res.status(200).json(sanitizedJson); // パース＆サニタイズしたJSONを返す
   } catch (apiError) {
-    logger.error("[requestDiagnosis] Gemini API call failed:", apiError);
-    // Safe Diagnostic Info
-    const keyStatus = apiKey ? `Present (Length: ${apiKey.length}, Prefix: ${apiKey.substring(0, 4)}...)` : "Missing/Empty";
-
-    return res.status(500).json({
-      error: "Gemini API Error",
-      message: `AI診断リクエストの送信に失敗しました。\n詳細: ${apiError.message}`,
-      debugInfo: {
-        reason: "API Call Failed",
-        keyStatus: keyStatus,
-        model: "gemini-2.5-flash-preview-09-2025" // Updated to match actual model
-      }
+    return sendError(res, 500, "Gemini API Error", `AI診断失敗: ${apiError.message}`, {
+      model: config.models.diagnosis
     });
   }
-}
-
-/**
- * 文字列内のHTMLエンティティをデコードする
- * 特に &#x2F; (/) など、AIが生成しがちなものを対象とする
- */
-function decodeHtmlEntities(str) {
-  if (typeof str !== 'string') return str;
-  return str
-    .replace(/&#x2f;/gi, '/') // Case insensitive &#x2F;
-    .replace(/&#47;/g, '/')   // Decimal &#47;
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    // Fallback: 汎用的なヘックスエンティティ
-    .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
-    // Fallback: 汎用的なデシマルエンティティ
-    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(parseInt(dec, 10)));
-}
-
-function decodeHtmlEntitiesLoop(str) {
-  let decoded = str;
-  let previous = "";
-  let count = 0;
-  // 最大5回までループして二重エスケープなどを解消
-  while (decoded !== previous && count < 5) {
-    previous = decoded;
-    decoded = decodeHtmlEntities(decoded);
-    count++;
-  }
-  return decoded;
-}
-
-/**
- * オブジェクト内の全文字列プロパティを再帰的にサニタイズする
- */
-// function sanitizeObject(obj) { // defined below
-function sanitizeObject(obj) {
-  if (typeof obj === 'string') {
-    return decodeHtmlEntitiesLoop(obj);
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item));
-  }
-  if (obj !== null && typeof obj === 'object') {
-    const newObj = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        newObj[key] = sanitizeObject(obj[key]);
-      }
-    }
-    return newObj;
-  }
-  return obj;
 }
 
 module.exports = {

@@ -1,143 +1,151 @@
 /**
  * api.js
- * バックエンド (yhd-ai Functions, yhd-db Functions, Firebase Storage) との通信を担当
- * [Thomas Edit] generateHairstyleImageをオブジェクト引数に対応 & パラメータ不足を解消
+ * Handles communication with Cloud Functions (HTTP) and Firebase Storage
  */
 
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { appState } from './state.js';
 import { logger } from './helpers.js';
-// Firebase Imports
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// --- Generic Fetch Wrapper ---
 
-// --- ユーティリティ ---
-async function fetchApi(url, options) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    let errorData;
-    try {
-      // Clone response to allow reading text if json fails
-      const clone = response.clone();
+async function fetchInternal(endpointName, body) {
+  if (!appState.apiBaseUrl) {
+    throw new Error("API Base URL is not configured.");
+  }
+  const url = `${appState.apiBaseUrl}/${endpointName}`;
+
+  logger.log(`[API] Calling ${endpointName}...`);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      let errorData = {};
       try {
         errorData = await response.json();
-      } catch (jsonErr) {
-        errorData = { error: "Network error", message: await clone.text() };
+      } catch (e) {
+        // If not JSON, try text
+        const text = await response.text();
+        errorData = { message: text || `HTTP Error ${response.status}` };
       }
-    } catch (e) {
-      errorData = { error: "Network error", message: "Failed to read error response." };
+
+      const error = new Error(errorData.message || errorData.error || "Unknown Server Error");
+      error.status = response.status;
+      error.details = errorData;
+      throw error;
     }
-    logger.error(`[API Fetch] Failed ${options.method} ${url}`, { status: response.status, error: errorData });
-    throw new Error(errorData.message || errorData.error || "APIリクエストに失敗しました。");
+
+    const data = await response.json();
+    logger.log(`[API] ${endpointName} success`);
+    return data; // Result is usually { ...data } or just data
+
+  } catch (error) {
+    logger.error(`[API] ${endpointName} failed:`, error);
+    throw error;
   }
-  return response.json();
 }
 
-// --- 認証 ---
-export async function requestFirebaseCustomToken(accessToken) {
-  const authUrl = "https://asia-northeast1-yhd-db.cloudfunctions.net/createFirebaseCustomTokenV2";
+// --- Auth ---
 
-  logger.log(`[API] requestFirebaseCustomToken...`);
-  return fetchApi(authUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken: accessToken }),
-  });
-};
+export async function requestCustomToken(accessToken) {
+  return fetchInternal('createFirebaseCustomTokenV2', { accessToken });
+}
 
-// --- ストレージ (yhd-db) ---
+// --- Storage & Firestore ---
 
-// ファイルのみアップロード (Storageのみ)
-export async function uploadFileToStorageOnly(firebaseUid, file, key) {
-  if (!appState || !appState.firebase.storage) throw new Error("Firebase Storage not initialized.");
-  const storage = appState.firebase.storage;
-  const path = `uploads/${firebaseUid}/${key}-${Date.now()}-${file.name}`;
+export async function uploadFileToStorage(file, path) {
+  if (!file) throw new Error("No file provided");
 
-  const storageRef = ref(storage, path);
-  const snapshot = await uploadBytes(storageRef, file);
-  return await getDownloadURL(snapshot.ref);
-};
+  try {
+    const storage = getStorage();
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(snapshot.ref);
+    logger.log(`[Upload] Success: ${path}`);
+    return url;
+  } catch (e) {
+    logger.error(`[Upload] Failed: ${path}`, e);
+    throw new Error("画像のアップロードに失敗しました。");
+  }
+}
 
-// 画像生成結果の保存 (Firestore + Storage)
-export async function saveImageToGallery(firebaseUid, dataUrl, styleName, colorName, refineText) {
-  if (!appState || !appState.firebase.storage || !appState.firebase.firestore) throw new Error("Firebase not initialized.");
+export async function saveImageToGallery(blob, userId, styleName, colorName, note = "") {
+  // 1. Upload to Storage
+  const timestamp = Date.now();
+  const fileName = `gen-${timestamp}.png`;
+  const path = `users/${userId}/gallery/${fileName}`;
 
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
+  const url = await uploadFileToStorage(blob, path);
 
-  const path = `users/${firebaseUid}/gallery/gen-${Date.now()}.png`;
-  const storageRef = ref(appState.firebase.storage, path);
-  await uploadBytes(storageRef, blob, { contentType: 'image/png' });
-  const downloadURL = await getDownloadURL(storageRef);
+  // 2. Save Metadata to Firestore
+  try {
+    const db = getFirestore();
+    const galleryRef = collection(db, `users/${userId}/gallery`);
+    await addDoc(galleryRef, {
+      url: url,
+      storagePath: path,
+      styleName: styleName || "N/A",
+      colorName: colorName || "N/A",
+      note: note,
+      createdAt: serverTimestamp(),
+      type: 'generated'
+    });
+    logger.log(`[Gallery] Saved to Firestore: ${path}`);
+    return url;
+  } catch (e) {
+    logger.error(`[Gallery] Firestore save failed:`, e);
+    // Even if Firestore fails, return URL as upload succeeded
+    return url;
+  }
+}
 
-  const galleryCol = collection(appState.firebase.firestore, `users/${firebaseUid}/gallery`);
-  const docRef = await addDoc(galleryCol, {
-    url: downloadURL,
-    storagePath: path,
-    styleName: styleName || "",
-    colorName: colorName || "",
-    refineText: refineText || "",
-    type: "generated",
-    createdAt: serverTimestamp(),
-  });
+export async function saveScreenshotToGallery(blob, userId, title) {
+  const timestamp = Date.now();
+  const fileName = `capture-${timestamp}.png`;
+  const path = `users/${userId}/gallery/${fileName}`;
 
-  return { docId: docRef.id, path: path, url: downloadURL };
-};
+  const url = await uploadFileToStorage(blob, path);
 
-// スクリーンショット保存用関数
-export async function saveScreenshotToGallery(firebaseUid, dataUrl, title) {
-  if (!appState || !appState.firebase.storage || !appState.firebase.firestore) throw new Error("Firebase not initialized.");
-
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-
-  const path = `users/${firebaseUid}/gallery/capture-${Date.now()}.png`;
-  const storageRef = ref(appState.firebase.storage, path);
-  await uploadBytes(storageRef, blob, { contentType: 'image/png' }); // Metadata added
-  const downloadURL = await getDownloadURL(storageRef);
-
-  const galleryCol = collection(appState.firebase.firestore, `users/${firebaseUid}/gallery`);
-  const docRef = await addDoc(galleryCol, {
-    url: downloadURL,
-    storagePath: path,
-    title: title || "スクリーンショット",
-    type: "screenshot",
-    createdAt: serverTimestamp(),
-  });
-
-  return { docId: docRef.id, path: path };
+  try {
+    const db = getFirestore();
+    const galleryRef = collection(db, `users/${userId}/gallery`);
+    await addDoc(galleryRef, {
+      url: url,
+      storagePath: path,
+      title: title || "スクリーンショット",
+      type: "screenshot",
+      createdAt: serverTimestamp(),
+    });
+    logger.log(`[Gallery] Screenshot saved: ${path}`);
+    return url;
+  } catch (e) {
+    logger.error(`[Gallery] Screenshot save failed:`, e);
+    return url;
+  }
 }
 
 // --- AI機能 (YHD-DX Functions) ---
 
 export async function requestDiagnosis(fileUrls, user, gender) {
-  const url = `${appState.apiBaseUrl}/requestDiagnosis`;
-  return fetchApi(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      fileUrls: fileUrls,
-      userProfile: { firebaseUid: user.firebaseUid, lineUserId: user.userId },
-      gender: gender,
-    }),
+  return fetchInternal('requestDiagnosis', {
+    fileUrls: fileUrls,
+    userProfile: { firebaseUid: user.firebaseUid, lineUserId: user.userId },
+    gender: gender,
   });
 };
 
-// ★★★ 修正: 引数をオブジェクト1つにまとめて、そのまま送信するように変更 ★★★
 export async function generateHairstyleImage(params) {
-  const url = `${appState.apiBaseUrl}/generateHairstyleImage`;
-  return fetchApi(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params), // 受け取ったパラメータをそのまま送る
-  });
+  return fetchInternal('generateHairstyleImage', params);
 };
 
 export async function refineHairstyleImage(generatedImageUrl, firebaseUid, refinementText) {
-  const url = `${appState.apiBaseUrl}/refineHairstyleImage`;
-  return fetchApi(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ generatedImageUrl, firebaseUid, refinementText }),
-  });
+  return fetchInternal('refineHairstyleImage', { generatedImageUrl, firebaseUid, refinementText });
 };
